@@ -32,8 +32,9 @@ This skill MUST NOT:
 Follow this order strictly:
 
 1. run `git branch --show-current`
-   - if the branch is `main`, **stop** and report — PRs are opened from feature
-     branches, not `main`
+   - if the branch is `main`, **stop** and report — the branch strategy
+     (see `docs/commit-and-pr-convention.md`) is two-tier (`main` + working
+     branches) and `main` merges **only via PR** opened from a working branch
 2. determine the base branch (default `main`)
 3. ensure the branch is pushed:
    - run `git status` to confirm no uncommitted changes intended for the PR
@@ -93,12 +94,7 @@ Guidelines:
 - List changes grouped by area (components / stores / api / styles / config).
 - Fill the Test plan with the commands actually run for this frontend
   (`npm run lint`, `npm run type-check`, `npm run build`) plus any manual checks.
-
-End the PR body with:
-
-```text
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+- Do not append any attribution/signature line to the PR body.
 
 ---
 

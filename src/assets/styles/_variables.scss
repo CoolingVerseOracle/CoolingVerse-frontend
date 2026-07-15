@@ -1,0 +1,55 @@
+// Design tokens extracted from Figma (file expcuin7TmzfHxpX0obQt0)
+
+// Colors
+$color-primary: #1e90ff;
+$color-primary-dark: #1565d8;
+$color-primary-soft: #eaf4ff;
+
+$color-text: #121c2a;
+$color-text-secondary: #475569;
+$color-text-muted: #94a3b8;
+
+$color-border: #e2e8f0;
+$color-bg: #f8fafc;
+$color-surface: #ffffff;
+
+$color-success: #16a34a;
+$color-success-soft: #dcfce7;
+$color-danger: #dc2626;
+$color-danger-soft: #fee2e2;
+$color-warning: #f59e0b;
+$color-warning-soft: #fef3c7;
+
+// Typography
+$font-family-base: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+  system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo',
+  'Noto Sans KR', 'Malgun Gothic', sans-serif;
+
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-md: 16px;
+$font-size-lg: 20px;
+$font-size-xl: 24px;
+$font-size-kpi: 32px;
+
+// Radii
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;
+
+// Spacing
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+
+// Shadow
+$shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
+
+// Layout
+$header-height: 56px;
+$content-max-width: 1280px;

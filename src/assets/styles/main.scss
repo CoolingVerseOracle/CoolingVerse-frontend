@@ -1,0 +1,11 @@
+// NOTE: `variables` and `mixins` are injected globally via Vite `additionalData`,
+// so they are available here (and in every SFC style block) without an explicit @use.
+@use 'reset';
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  color: $color-text;
+  background: $color-surface;
+  -webkit-font-smoothing: antialiased;
+}
