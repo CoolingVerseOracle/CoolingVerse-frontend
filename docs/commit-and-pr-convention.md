@@ -125,12 +125,7 @@ Fix(api) : 토큰 만료 시 재요청 처리
 - 변경사항은 영역별로 묶어 정리(components / stores / api / styles / config)
 - 테스트 계획에는 실제로 실행한 명령(`npm run lint`, `npm run type-check`,
   `npm run build`)과 수동 확인 항목을 기록
-
-PR 본문 마지막에 다음 서명을 추가합니다:
-
-```text
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+- PR 본문에 서명/attribution 문구는 넣지 않음
 
 ### 가드레일
 

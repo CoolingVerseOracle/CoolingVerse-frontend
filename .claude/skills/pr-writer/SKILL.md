@@ -94,12 +94,7 @@ Guidelines:
 - List changes grouped by area (components / stores / api / styles / config).
 - Fill the Test plan with the commands actually run for this frontend
   (`npm run lint`, `npm run type-check`, `npm run build`) plus any manual checks.
-
-End the PR body with:
-
-```text
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+- Do not append any attribution/signature line to the PR body.
 
 ---
 
