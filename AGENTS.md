@@ -77,6 +77,15 @@ Allowed types: `Feat`, `Fix`, `Add`, `Remove`, `Refactor`, `Docs`, `Chore`,
 Examples: `Feat(auth) : 로그인 폼 유효성 검사 추가`,
 `Style(components) : 카드 간격 정렬`, `Chore(vite) : @ 경로 별칭 설정`.
 
+## Branch strategy
+
+Two tiers only — `main` + working branches. See `docs/commit-and-pr-convention.md`.
+
+- Never commit or push directly to `main`.
+- All work happens on a working branch named `<type>/<short-desc>`
+  (e.g. `feat/login-view`, `fix/scenario-filter`).
+- Merging into `main` happens **only through a PR** opened from the working branch.
+
 ## Pull request convention
 
 Full reference: `docs/commit-and-pr-convention.md`.

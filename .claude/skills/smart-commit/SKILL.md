@@ -36,7 +36,10 @@ This skill MUST NOT:
 
 Follow this order strictly:
 
-1. inspect current branch
+1. inspect current branch — **if on `main`, do NOT commit there.** Branch strategy
+   (see `docs/commit-and-pr-convention.md`) allows only `main` + working branches,
+   and `main` changes only via PR. Create/switch to a working branch named
+   `<type>/<short-desc>` (e.g. `feat/login-view`) first, carrying the changes over
 2. run `git status`
 3. run `git diff` (and `git diff --staged` if anything is already staged)
 4. identify all modified / added / deleted files
@@ -175,6 +178,8 @@ git commit -m "Style(styles) : 간격 토큰 추가"
 
 After the last commit unit is committed, `git push` is allowed — run a normal push
 (never `--force`) to publish the commits, then report what was committed and pushed.
+**Never push to `main`** — only working branches are pushed; `main` moves only via
+merged PRs.
 
 Pull request creation and merging are **not** part of this skill — use `pr-writer`
 for PRs. Never force-push or rewrite history.

@@ -32,8 +32,9 @@ This skill MUST NOT:
 Follow this order strictly:
 
 1. run `git branch --show-current`
-   - if the branch is `main`, **stop** and report — PRs are opened from feature
-     branches, not `main`
+   - if the branch is `main`, **stop** and report — the branch strategy
+     (see `docs/commit-and-pr-convention.md`) is two-tier (`main` + working
+     branches) and `main` merges **only via PR** opened from a working branch
 2. determine the base branch (default `main`)
 3. ensure the branch is pushed:
    - run `git status` to confirm no uncommitted changes intended for the PR
