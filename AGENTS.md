@@ -28,6 +28,8 @@ the first commit so the project stays consistent as it is built.
 
 These activate once the Vite project is scaffolded:
 
+- API 연동 개발 시 `.env.example`을 `.env`로 복사 (`VITE_API_BASE_URL`) 후,
+  백엔드(`CoolingVerseOracle/Coolingverse-backend`)를 `./gradlew bootRun`으로 :8080에 기동
 - `npm install` — install dependencies
 - `npm run dev` — start the dev server
 - `npm run build` — production build (runs type-check + Vite build)
