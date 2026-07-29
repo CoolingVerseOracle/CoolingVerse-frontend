@@ -55,9 +55,20 @@ function onSave(): void {
         />
       </fieldset>
 
-      <div class="settings-panel__group settings-panel__group--row">
-        <span class="settings-panel__label">예상 참여율</span>
-        <strong class="settings-panel__rate">{{ store.settings.participationRate }}%</strong>
+      <div class="settings-panel__group">
+        <div class="settings-panel__rate-head">
+          <span class="settings-panel__label">예상 참여율</span>
+          <strong class="settings-panel__rate">{{ store.settings.participationRate }}%</strong>
+        </div>
+        <input
+          v-model.number="store.settings.participationRate"
+          class="settings-panel__slider"
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          aria-label="예상 참여율"
+        >
       </div>
 
       <div class="settings-panel__group">
@@ -146,12 +157,6 @@ function onSave(): void {
     flex-direction: column;
     gap: $space-2;
     border: none;
-
-    &--row {
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-    }
   }
 
   &__label {
@@ -159,10 +164,22 @@ function onSave(): void {
     color: $color-text-secondary;
   }
 
+  &__rate-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
   &__rate {
     font-size: $font-size-base;
     font-weight: 700;
     color: $color-primary;
+  }
+
+  &__slider {
+    width: 100%;
+    accent-color: $color-primary;
+    cursor: pointer;
   }
 
   &__time-range {
