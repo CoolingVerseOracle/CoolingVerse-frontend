@@ -21,6 +21,8 @@ const router = createRouter({
       name: 'scenarios',
       component: () => import('@/views/ScenarioManagementView.vue'),
     },
+    // 미매칭 경로는 대시보드로 (비인증이면 가드가 로그인으로 재라우팅)
+    { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
   ],
 })
 
