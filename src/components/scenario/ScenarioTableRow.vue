@@ -8,7 +8,11 @@ const props = defineProps<{
   selected: boolean
 }>()
 
-const emit = defineEmits<{ toggle: [id: string] }>()
+const emit = defineEmits<{
+  toggle: [id: string]
+  open: [id: string]
+  remove: [id: string]
+}>()
 
 const selectedProxy = computed({
   get: () => props.selected,
@@ -39,6 +43,22 @@ const selectedProxy = computed({
     </td>
     <td class="scenario-row__date">
       {{ scenario.updatedAt }}
+    </td>
+    <td class="scenario-row__actions">
+      <button
+        class="scenario-row__action"
+        type="button"
+        @click="emit('open', scenario.id)"
+      >
+        열기
+      </button>
+      <button
+        class="scenario-row__action scenario-row__action--danger"
+        type="button"
+        @click="emit('remove', scenario.id)"
+      >
+        삭제
+      </button>
     </td>
   </tr>
 </template>
@@ -85,6 +105,29 @@ const selectedProxy = computed({
 
   &__date {
     color: $color-text-secondary;
+  }
+
+  &__actions {
+    white-space: nowrap;
+  }
+
+  &__action {
+    padding: 4px $space-2;
+    border-radius: $radius-sm;
+    font-size: $font-size-sm;
+    color: $color-primary;
+
+    &:hover {
+      background: $color-primary-soft;
+    }
+
+    &--danger {
+      color: $color-danger;
+
+      &:hover {
+        background: $color-danger-soft;
+      }
+    }
   }
 }
 </style>

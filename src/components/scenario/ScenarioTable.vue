@@ -1,13 +1,54 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import AppCheckbox from '@/components/common/AppCheckbox.vue'
 import AppPagination from '@/components/common/AppPagination.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
 import ScenarioTableRow from './ScenarioTableRow.vue'
+import { fetchScenario } from '@/api/scenarios'
+import { HttpError } from '@/api/http'
 import { useScenarioStore } from '@/stores/scenario'
+import { useSimulationStore } from '@/stores/simulation'
 import type { SelectOption } from '@/types/common'
 
 const store = useScenarioStore()
+const simulationStore = useSimulationStore()
+const router = useRouter()
+
+const opening = ref(false)
+
+/** "열기" — 상세를 받아 설정을 복원·재계산한 뒤 대시보드로 이동 */
+async function onOpen(id: string): Promise<void> {
+  if (opening.value) return
+  opening.value = true
+  try {
+    const detail = await fetchScenario(id)
+    await simulationStore.applyScenario(detail.settings)
+    void router.push({ name: 'dashboard' })
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) {
+      window.alert('이미 삭제된 시나리오입니다. 목록을 갱신합니다.')
+      void store.load()
+    } else {
+      window.alert('시나리오를 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    }
+  } finally {
+    opening.value = false
+  }
+}
+
+async function onRemove(id: string): Promise<void> {
+  const target = store.scenarios.find((s) => s.id === id)
+  if (!window.confirm(`'${target?.name ?? id}' 시나리오를 삭제할까요?`)) return
+  try {
+    const outcome = await store.remove(id)
+    if (outcome === 'notFound') {
+      window.alert('이미 삭제된 시나리오입니다. 목록을 갱신했습니다.')
+    }
+  } catch {
+    window.alert('삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+  }
+}
 
 const pageSizeOptions: SelectOption[] = [
   { label: '10', value: '10' },
@@ -42,6 +83,7 @@ const pageSizeProxy = computed({
           <th>공급 증감</th>
           <th>위험지수 변화</th>
           <th>수정일</th>
+          <th>관리</th>
         </tr>
       </thead>
       <tbody>
@@ -51,11 +93,13 @@ const pageSizeProxy = computed({
           :scenario="scenario"
           :selected="store.selectedIds.has(scenario.id)"
           @toggle="store.toggleSelect"
+          @open="onOpen"
+          @remove="onRemove"
         />
         <tr v-if="!store.loading && store.scenarios.length === 0">
           <td
             class="scenario-table__empty"
-            colspan="7"
+            colspan="8"
           >
             조건에 맞는 시나리오가 없습니다.
           </td>
