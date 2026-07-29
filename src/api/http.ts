@@ -41,5 +41,7 @@ export async function http<T>(path: string, init: RequestInit = {}): Promise<T> 
     if (res.status === 401) onUnauthorized?.()
     throw new HttpError(res.status, `요청 실패 (${res.status}): ${path}`)
   }
+  // DELETE 등 body 없는 응답(204)은 json 파싱을 건너뛴다
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }

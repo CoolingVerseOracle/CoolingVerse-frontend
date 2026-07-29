@@ -1,5 +1,10 @@
 import type { Paginated } from '@/types/common'
-import type { Scenario, ScenarioFilter } from '@/types/scenario'
+import type {
+  CreateScenarioRequest,
+  Scenario,
+  ScenarioDetail,
+  ScenarioFilter,
+} from '@/types/scenario'
 import { http } from './http'
 
 /** 시나리오 목록 조회 — 검색·정렬·페이지네이션은 서버가 처리한다 */
@@ -19,4 +24,22 @@ export async function fetchScenarios(filter: ScenarioFilter): Promise<Paginated<
   if (filter.timeSlot !== 'all') params.set('timeSlot', filter.timeSlot)
 
   return http<Paginated<Scenario>>(`/scenarios?${params.toString()}`)
+}
+
+/** 시나리오 저장 — 서버가 결과(공급·위험지수·CO2)를 계산해 스냅샷으로 함께 저장한다 */
+export async function createScenario(payload: CreateScenarioRequest): Promise<ScenarioDetail> {
+  return http<ScenarioDetail>('/scenarios', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** 시나리오 상세("열기") — 설정과 결과 스냅샷을 함께 반환한다 */
+export async function fetchScenario(id: string): Promise<ScenarioDetail> {
+  return http<ScenarioDetail>(`/scenarios/${id}`)
+}
+
+/** 시나리오 삭제 — 성공 204 / 없으면 404(HttpError) */
+export async function deleteScenario(id: string): Promise<void> {
+  await http<void>(`/scenarios/${id}`, { method: 'DELETE' })
 }
