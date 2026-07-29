@@ -14,8 +14,9 @@ const toneColor: Record<MetricTone, string> = {
 }
 
 const max = computed(() => Math.max(props.metric.before, props.metric.after))
-const beforeWidth = computed(() => (props.metric.before / max.value) * 100)
-const afterWidth = computed(() => (props.metric.after / max.value) * 100)
+// before/after가 모두 0이면 0으로 나눠 NaN% 가 되므로 너비 0으로 방어
+const beforeWidth = computed(() => (max.value === 0 ? 0 : (props.metric.before / max.value) * 100))
+const afterWidth = computed(() => (max.value === 0 ? 0 : (props.metric.after / max.value) * 100))
 const afterColor = computed(() => toneColor[props.metric.tone])
 </script>
 
