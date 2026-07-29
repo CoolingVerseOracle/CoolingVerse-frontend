@@ -20,23 +20,31 @@ export const useScenarioStore = defineStore('scenario', () => {
   const loading = ref(false)
   const selectedIds = ref<Set<string>>(new Set())
 
+  // 늦게 도착한 이전 응답이 최신 목록을 덮어쓰지 않도록 최신 요청만 반영
+  let requestSeq = 0
+
   async function load(): Promise<void> {
+    const seq = ++requestSeq
     loading.value = true
     try {
       const res = await fetchScenarios({ ...filter })
+      if (seq !== requestSeq) return
       scenarios.value = res.items
       total.value = res.total
+      selectedIds.value = new Set()
     } finally {
-      loading.value = false
+      if (seq === requestSeq) loading.value = false
     }
   }
 
-  // 필터 변경 시 1페이지로 되돌리고 재조회
+  // 필터 변경 시 1페이지로 되돌리고 재조회.
+  // page가 이미 1이면 직접 조회하고, 아니면 페이지 리셋이 page watcher를 통해
+  // 조회를 트리거하므로 어느 경우든 load()는 정확히 1회 실행된다.
   watch(
     () => [filter.region, filter.participation, filter.timeSlot, filter.keyword, filter.sort, filter.pageSize],
     () => {
-      filter.page = 1
-      void load()
+      if (filter.page === 1) void load()
+      else filter.page = 1
     },
   )
   watch(
