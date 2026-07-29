@@ -1,6 +1,7 @@
 import { reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { fetchScenarios } from '@/api/scenarios'
+import { deleteScenario, fetchScenarios } from '@/api/scenarios'
+import { HttpError } from '@/api/http'
 import type { Scenario, ScenarioFilter } from '@/types/scenario'
 
 /** 시나리오 관리 — 목록/필터/정렬/페이지네이션 */
@@ -52,6 +53,21 @@ export const useScenarioStore = defineStore('scenario', () => {
     () => void load(),
   )
 
+  /** 삭제 후 목록 재조회. 404(이미 삭제됨)도 재조회로 수습하고 결과를 알린다 */
+  async function remove(id: string): Promise<'deleted' | 'notFound'> {
+    let outcome: 'deleted' | 'notFound' = 'deleted'
+    try {
+      await deleteScenario(id)
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) outcome = 'notFound'
+      else throw err
+    }
+    // 마지막 페이지의 마지막 행을 지웠으면 한 페이지 앞으로 (page watcher가 재조회)
+    if (scenarios.value.length === 1 && filter.page > 1) filter.page -= 1
+    else await load()
+    return outcome
+  }
+
   function toggleSelect(id: string): void {
     const next = new Set(selectedIds.value)
     if (next.has(id)) next.delete(id)
@@ -66,5 +82,5 @@ export const useScenarioStore = defineStore('scenario', () => {
         : new Set(scenarios.value.map((s) => s.id))
   }
 
-  return { filter, scenarios, total, loading, selectedIds, load, toggleSelect, toggleSelectAll }
+  return { filter, scenarios, total, loading, selectedIds, load, remove, toggleSelect, toggleSelectAll }
 })

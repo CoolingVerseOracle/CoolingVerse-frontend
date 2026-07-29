@@ -37,5 +37,14 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  return { settings, result, loading, running, loadInitial, run }
+  /**
+   * 저장된 시나리오 "열기" — 설정을 복원하고 결과를 재계산한다.
+   * 완료 후 result가 채워지므로 대시보드 진입 시 loadInitial()은 건너뛰어진다.
+   */
+  async function applyScenario(saved: SimulationSettings): Promise<void> {
+    Object.assign(settings, saved)
+    await run()
+  }
+
+  return { settings, result, loading, running, loadInitial, run, applyScenario }
 })
