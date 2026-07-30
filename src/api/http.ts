@@ -12,6 +12,14 @@ export function setAuthToken(token: string | null): void {
   staticToken = token
 }
 
+// 401 공통 처리 — 모든 요청이 지나는 이 계층에서 한 번만 처리한다.
+// (스토어를 직접 import하면 http → store 순환 참조가 생기므로 콜백 등록 방식)
+let onUnauthorized: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler
+}
+
 export class HttpError extends Error {
   status: number
 
@@ -29,6 +37,8 @@ export async function http<T>(path: string, init: RequestInit = {}): Promise<T> 
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   if (!res.ok) {
+    // 토큰 무효(서버 재시작 포함) — 세션을 정리하고 로그인 화면으로 보낸다
+    if (res.status === 401) onUnauthorized?.()
     throw new HttpError(res.status, `요청 실패 (${res.status}): ${path}`)
   }
   return res.json() as Promise<T>
