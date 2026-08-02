@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AppCheckbox from '@/components/common/AppCheckbox.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
+import ScenarioSaveModal from './ScenarioSaveModal.vue'
 import { useSimulationStore } from '@/stores/simulation'
 import type { SelectOption } from '@/types/common'
 
@@ -22,9 +23,11 @@ const hourOptions: SelectOption[] = Array.from({ length: 24 }, (_, h) => {
   return { label, value: label }
 })
 
-function onSave(): void {
-  // TODO: 시나리오 저장 API 연동 (pr: 시나리오 관리 화면에서 조회)
-  window.alert('시나리오 저장은 백엔드 연동 후 제공됩니다.')
+const saveModalOpen = ref(false)
+
+function onSaved(name: string): void {
+  saveModalOpen.value = false
+  window.alert(`'${name}' 시나리오가 저장되었습니다. 시나리오 관리에서 확인할 수 있습니다.`)
 }
 </script>
 
@@ -110,11 +113,17 @@ function onSave(): void {
       <AppButton
         variant="secondary"
         block
-        @click="onSave"
+        @click="saveModalOpen = true"
       >
         시나리오 저장
       </AppButton>
     </footer>
+
+    <ScenarioSaveModal
+      v-if="saveModalOpen"
+      @close="saveModalOpen = false"
+      @saved="onSaved"
+    />
   </section>
 </template>
 
