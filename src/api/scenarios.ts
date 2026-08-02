@@ -1,40 +1,22 @@
 import type { Paginated } from '@/types/common'
 import type { Scenario, ScenarioFilter } from '@/types/scenario'
-import { mockScenarios } from './mocks/scenarios.mock'
+import { http } from './http'
 
-const MOCK_DELAY_MS = 300
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-const parseDate = (d: string) => d.replaceAll('.', '')
-
-/** 시나리오 목록 조회 — 목 구현(필터/검색/정렬/페이지네이션 포함). 실제 연동 시 http() 호출로 교체 */
+/** 시나리오 목록 조회 — 검색·정렬·페이지네이션은 서버가 처리한다 */
 export async function fetchScenarios(filter: ScenarioFilter): Promise<Paginated<Scenario>> {
-  await delay(MOCK_DELAY_MS)
+  const params = new URLSearchParams({
+    sort: filter.sort,
+    page: String(filter.page),
+    pageSize: String(filter.pageSize),
+  })
 
-  let items = [...mockScenarios]
+  const keyword = filter.keyword.trim()
+  if (keyword) params.set('keyword', keyword)
+  if (filter.region !== 'all') params.set('region', filter.region)
+  // participation/timeSlot은 아직 백엔드 미지원 파라미터 — 서버가 무시하며,
+  // 쿼리 지원이 추가되면 프론트 변경 없이 동작한다 (이슈 #4)
+  if (filter.participation !== 'all') params.set('participation', filter.participation)
+  if (filter.timeSlot !== 'all') params.set('timeSlot', filter.timeSlot)
 
-  if (filter.region !== 'all') {
-    items = items.filter((s) => s.region === filter.region)
-  }
-  if (filter.keyword.trim()) {
-    const kw = filter.keyword.trim().toLowerCase()
-    items = items.filter((s) => s.name.toLowerCase().includes(kw))
-  }
-
-  items.sort((a, b) =>
-    filter.sort === 'updatedDesc'
-      ? parseDate(b.updatedAt).localeCompare(parseDate(a.updatedAt))
-      : parseDate(a.updatedAt).localeCompare(parseDate(b.updatedAt)),
-  )
-
-  const total = items.length
-  const start = (filter.page - 1) * filter.pageSize
-
-  return {
-    items: items.slice(start, start + filter.pageSize),
-    total,
-    page: filter.page,
-    pageSize: filter.pageSize,
-  }
+  return http<Paginated<Scenario>>(`/scenarios?${params.toString()}`)
 }

@@ -6,10 +6,10 @@ import type { SelectOption } from '@/types/common'
 
 const store = useScenarioStore()
 
+// 백엔드 canonical 지역 값 기준 (현재 시드는 분당구 단일 — 지역 확장 시 목록 API 분리 검토)
 const regionOptions: SelectOption[] = [
   { label: '지역 전체', value: 'all' },
-  { label: '판교테크노벨리', value: '판교테크노벨리' },
-  { label: '수원 인계동', value: '수원 인계동' },
+  { label: '성남시 분당구', value: '성남시 분당구' },
 ]
 
 const participationOptions: SelectOption[] = [
