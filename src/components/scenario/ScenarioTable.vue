@@ -72,41 +72,43 @@ const pageSizeProxy = computed({
 
 <template>
   <section class="scenario-table">
-    <table>
-      <thead>
-        <tr>
-          <th class="scenario-table__check">
-            <AppCheckbox v-model="allSelected" />
-          </th>
-          <th>시나리오명</th>
-          <th>대상 지역</th>
-          <th>주요 조건</th>
-          <th>공급 증감</th>
-          <th>위험지수 변화</th>
-          <th>수정일</th>
-          <th>관리</th>
-        </tr>
-      </thead>
-      <tbody>
-        <ScenarioTableRow
-          v-for="scenario in store.scenarios"
-          :key="scenario.id"
-          :scenario="scenario"
-          :selected="store.selectedIds.has(scenario.id)"
-          @toggle="store.toggleSelect"
-          @open="onOpen"
-          @remove="onRemove"
-        />
-        <tr v-if="!store.loading && store.scenarios.length === 0">
-          <td
-            class="scenario-table__empty"
-            colspan="8"
-          >
-            조건에 맞는 시나리오가 없습니다.
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="scenario-table__scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="scenario-table__check">
+              <AppCheckbox v-model="allSelected" />
+            </th>
+            <th>시나리오명</th>
+            <th>대상 지역</th>
+            <th>주요 조건</th>
+            <th>공급 증감</th>
+            <th>위험지수 변화</th>
+            <th>수정일</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ScenarioTableRow
+            v-for="scenario in store.scenarios"
+            :key="scenario.id"
+            :scenario="scenario"
+            :selected="store.selectedIds.has(scenario.id)"
+            @toggle="store.toggleSelect"
+            @open="onOpen"
+            @remove="onRemove"
+          />
+          <tr v-if="!store.loading && store.scenarios.length === 0">
+            <td
+              class="scenario-table__empty"
+              colspan="8"
+            >
+              조건에 맞는 시나리오가 없습니다.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <footer class="scenario-table__footer">
       <span class="scenario-table__total">
@@ -136,8 +138,13 @@ const pageSizeProxy = computed({
   @include card;
   overflow: hidden;
 
+  &__scroll {
+    overflow-x: auto;
+  }
+
   table {
     width: 100%;
+    min-width: 720px;
   }
 
   thead {
@@ -167,6 +174,8 @@ const pageSizeProxy = computed({
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: $space-3;
     padding: $space-3 $space-4;
   }
 

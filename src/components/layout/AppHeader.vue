@@ -49,13 +49,22 @@ function onLogout(): void {
     height: $header-height;
     margin: 0 auto;
     padding: 0 $space-4;
+
+    @include below($bp-lg) {
+      gap: $space-4;
+    }
   }
 
   &__title {
+    @include text-ellipsis;
+    min-width: 0;
     font-size: $font-size-md;
     font-weight: 700;
     color: $color-text;
-    white-space: nowrap;
+
+    @include below($bp-md) {
+      font-size: $font-size-base;
+    }
   }
 
   &__tabs {
@@ -66,6 +75,11 @@ function onLogout(): void {
     display: flex;
     align-items: center;
     gap: $space-4;
+    flex-shrink: 0;
+
+    @include below($bp-md) {
+      gap: $space-2;
+    }
   }
 
   &__logout {

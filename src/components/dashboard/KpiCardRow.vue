@@ -21,8 +21,16 @@ defineProps<{ metrics: KpiMetric[] }>()
   grid-template-columns: repeat(5, 1fr);
   gap: $space-4;
 
-  @media (max-width: 1080px) {
+  @include below($bp-lg) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @include below($bp-md) {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include below($bp-sm) {
+    grid-template-columns: 1fr;
   }
 }
 </style>

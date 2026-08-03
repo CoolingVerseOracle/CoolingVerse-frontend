@@ -104,6 +104,7 @@ function onDownloadReport(): void {
 
   &__actions {
     display: flex;
+    flex-wrap: wrap;
     gap: $space-2;
   }
 
@@ -112,8 +113,28 @@ function onDownloadReport(): void {
     grid-template-columns: 250px 1fr 250px;
     gap: $space-4;
 
-    @media (max-width: 1080px) {
+    // 그리드 아이템 기본 min-width:auto 때문에 차트 캔버스가 트랙 축소를 막는 것 방지
+    > * {
+      min-width: 0;
+    }
+
+    // 중간 폭: 지도를 첫 행 전체로 올리고 사이드 패널 2개를 아래 2열로
+    @include below($bp-lg) {
+      grid-template-columns: 1fr 1fr;
+
+      > :nth-child(2) {
+        grid-column: 1 / -1;
+        grid-row: 1;
+      }
+    }
+
+    @include below($bp-sm) {
       grid-template-columns: 1fr;
+
+      > :nth-child(2) {
+        grid-column: auto;
+        grid-row: auto;
+      }
     }
   }
 
@@ -122,8 +143,24 @@ function onDownloadReport(): void {
     grid-template-columns: repeat(3, 1fr);
     gap: $space-4;
 
-    @media (max-width: 1080px) {
+    > * {
+      min-width: 0;
+    }
+
+    @include below($bp-lg) {
+      grid-template-columns: 1fr 1fr;
+
+      > :last-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @include below($bp-md) {
       grid-template-columns: 1fr;
+
+      > :last-child {
+        grid-column: auto;
+      }
     }
   }
 
