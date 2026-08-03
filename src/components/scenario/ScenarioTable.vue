@@ -17,9 +17,10 @@ const router = useRouter()
 
 const opening = ref(false)
 
-/** "열기" — 상세를 받아 설정을 복원·재계산한 뒤 대시보드로 이동 */
+/** "열기" — 대시보드 설정을 덮어쓰므로 확인 후, 상세를 받아 설정을 복원·재계산한 뒤 대시보드로 이동 */
 async function onOpen(id: string): Promise<void> {
   if (opening.value) return
+  if (!window.confirm('저장하지 않은 설정이 있다면 덮어씌워집니다. 계속할까요?')) return
   opening.value = true
   try {
     const detail = await fetchScenario(id)
