@@ -18,3 +18,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+@mixin below($breakpoint) {
+  @media (max-width: $breakpoint) {
+    @content;
+  }
+}

@@ -4,6 +4,7 @@ import App from './App.vue'
 import router from './router'
 import { setUnauthorizedHandler } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css'
 import '@/assets/styles/main.scss'
 
 const app = createApp(App)
