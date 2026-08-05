@@ -20,6 +20,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const gridIsFallback = ref(false)
 
   const globalRisk = computed(() => gridRisk.value?.globalRisk ?? null)
+  /** 참여율 적용 후 평균 위험지수 — 시뮬레이션 실행 전(appliedRate null)에는 표시하지 않는다 */
+  const globalRiskProjected = computed(() => {
+    const simulation = useSimulationStore()
+    if (simulation.appliedRate == null) return null
+    return gridRisk.value?.globalRiskProjected ?? null
+  })
   const breakdown = computed(() => gridRisk.value?.breakdown ?? null)
   const riskStateLabel = computed(() => {
     const risk = globalRisk.value
@@ -41,6 +47,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
       const { data, isFallback } = await fetchGridRisk({
         hour: selectedHour.value,
         region: simulation.settings.region ?? 'pangyo',
+        // 마지막 실행에 반영된 참여율 — projected 계산 입력 (실행 전이면 생략)
+        participationRate: simulation.appliedRate,
       })
       if (seq !== requestSeq) return
       gridRisk.value = data
@@ -66,6 +74,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     gridLoading,
     gridIsFallback,
     globalRisk,
+    globalRiskProjected,
     breakdown,
     riskStateLabel,
     loadGridRisk,

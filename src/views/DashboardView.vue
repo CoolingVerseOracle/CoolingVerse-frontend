@@ -20,6 +20,12 @@ onMounted(() => {
 watch([() => dashboard.selectedHour, () => store.settings.region], () => {
   dashboard.loadGridRiskDebounced()
 })
+
+// 시뮬레이션 실행 완료 → 적용 참여율로 재조회 (지도 projected·M-커브 반영)
+watch(
+  () => store.appliedRate,
+  () => void dashboard.loadGridRisk(),
+)
 </script>
 
 <template>

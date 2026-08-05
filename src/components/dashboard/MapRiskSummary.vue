@@ -1,6 +1,8 @@
 <script setup lang="ts">
 defineProps<{
   globalRisk: number | null
+  /** 참여율 적용 후 평균 지수 — 시뮬레이션 실행 전이면 null(미표시) */
+  projectedRisk: number | null
   stateLabel: string
   isFallback: boolean
 }>()
@@ -18,6 +20,12 @@ defineProps<{
     <p class="map-risk-summary__value">
       <strong>{{ globalRisk != null ? globalRisk.toFixed(1) : '–' }}</strong>
       <span class="map-risk-summary__max">/ 100</span>
+    </p>
+    <p
+      v-if="projectedRisk != null"
+      class="map-risk-summary__projected"
+    >
+      시나리오 적용 후 <strong>{{ projectedRisk.toFixed(1) }}</strong>
     </p>
     <p
       v-if="stateLabel"
@@ -71,6 +79,18 @@ defineProps<{
     font-size: $font-size-sm;
     font-weight: 600;
     color: $color-text;
+  }
+
+  &__projected {
+    margin-top: 2px;
+    font-size: $font-size-xs;
+    color: $color-text-secondary;
+
+    strong {
+      color: $color-success;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
   }
 
   &__state {

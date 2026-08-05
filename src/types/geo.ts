@@ -7,6 +7,8 @@ export interface GridRiskPoint {
   lng: number
   /** 격자 위험 지수 (0–100) */
   riskScore: number
+  /** 참여율 적용 후 위험 지수 (0–100) — 초기 버전은 전 격자 동일 감쇠 */
+  projectedRiskScore: number
 }
 
 export type RiskLevel = 'high' | 'medium' | 'low'
@@ -30,12 +32,14 @@ export interface HourlyRiskCurve {
   projected: number[]
 }
 
-/** GET /simulate/grid-risk 응답 — 백엔드 협의 중인 제안 계약 */
+/** GET /simulate/grid-risk 응답 — 백엔드 GridRiskDtos.java와 1:1 (backend PR #17·#20) */
 export interface GridRiskResponse {
   /** 조회 시간대 (0–23) */
   hour: number
   /** 평균 격자 위험 지수 (0–100) */
   globalRisk: number
+  /** 참여율 적용 후 평균 격자 위험 지수 (0–100) */
+  globalRiskProjected: number
   /** 위험지수 보유 격자만 (판교 기준 1,306개) */
   grids: GridRiskPoint[]
   breakdown: RiskBreakdown

@@ -1,6 +1,6 @@
 /**
  * grid-risk 개발용 폴백 데이터 생성기.
- * 백엔드 GET /simulate/grid-risk 미구현/장애 시 프론트 개발·리뷰가 막히지 않도록
+ * 백엔드 장애 또는 데이터 미보유 지역(현재 ingye는 404) 조회 시 화면이 막히지 않도록
  * 시드 고정 의사난수로 항상 같은 격자 분포를 만들어낸다. (mock API 계층이 아니라
  * 명시적 graceful-degradation 경로 — 사용처에서 isFallback으로 표기된다)
  */
@@ -51,11 +51,18 @@ function factor(score: number): RiskFactor {
   return { score: clamped, level: toLevel(clamped) }
 }
 
-export function buildGridRiskFallback(params: { hour: number; region: RegionCode }): GridRiskResponse {
+export function buildGridRiskFallback(params: {
+  hour: number
+  region: RegionCode
+  participationRate?: number | null
+}): GridRiskResponse {
   const bounds = REGION_BOUNDS[params.region]
   const seed = params.region === 'pangyo' ? 20261306 : 20261307
   const rand = mulberry32(seed)
   const weight = hourWeight(params.hour)
+  // 참여율 비례 균일 감쇠 (45% ≈ 완화율 15%, 하한 0.55) — 백엔드 초기 모델과 같은 성격
+  const rate = params.participationRate ?? 45
+  const relief = Math.max(0.55, 1 - rate / 300)
 
   // 핫스팟 3곳 — 시드 고정이라 지역별로 항상 같은 위치
   const hotspots = Array.from({ length: 3 }, () => ({
@@ -81,19 +88,20 @@ export function buildGridRiskFallback(params: { hour: number; region: RegionCode
     const score = Math.min(100, Math.max(0, (base + rand() * 16 - 8) * weight))
     const rounded = Math.round(score * 10) / 10
     total += rounded
-    grids.push({ lat, lng, riskScore: rounded })
+    grids.push({ lat, lng, riskScore: rounded, projectedRiskScore: Math.round(rounded * relief * 10) / 10 })
   }
 
   const globalRisk = Math.round((total / GRID_COUNT) * 10) / 10
 
-  // 시간대별 M-커브 — 현재 vs 시나리오 적용(완화율 15% 가정)
+  // 시간대별 M-커브 — 현재 vs 시나리오 적용(참여율 비례 감쇠)
   const meanBase = globalRisk / weight
   const hourlyCurrent = Array.from({ length: 24 }, (_, h) => Math.round(meanBase * hourWeight(h) * 10) / 10)
-  const hourlyProjected = hourlyCurrent.map((v) => Math.round(v * 0.85 * 10) / 10)
+  const hourlyProjected = hourlyCurrent.map((v) => Math.round(v * relief * 10) / 10)
 
   return {
     hour: params.hour,
     globalRisk,
+    globalRiskProjected: Math.round(globalRisk * relief * 10) / 10,
     grids,
     breakdown: {
       parking: factor(globalRisk + 18),
