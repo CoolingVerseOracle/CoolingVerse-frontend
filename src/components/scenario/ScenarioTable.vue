@@ -81,7 +81,7 @@ const pageSizeProxy = computed({
             </th>
             <th>시나리오명</th>
             <th>대상 지역</th>
-            <th>주요 조건</th>
+            <th>참여율</th>
             <th>공급 증감</th>
             <th>위험지수 변화</th>
             <th>수정일</th>
