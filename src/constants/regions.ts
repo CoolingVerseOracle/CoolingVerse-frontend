@@ -17,5 +17,5 @@ export function regionByCode(code: RegionCode): RegionOption {
   return REGIONS.find((r) => r.code === code) ?? REGIONS[0]
 }
 
-/** 분석 기준 월 선택지 — 현재 데이터셋은 10월 시드 기준 */
-export const ANALYSIS_MONTHS = [10, 11, 12] as const
+/** 분석 기준 월 선택지 — 항상 1–12월 전체. 연도는 고정(직전 년도 데이터 기준)이라 선택지 없음 */
+export const ANALYSIS_MONTHS: number[] = Array.from({ length: 12 }, (_, i) => i + 1)

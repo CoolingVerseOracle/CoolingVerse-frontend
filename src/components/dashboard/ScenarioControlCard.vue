@@ -13,6 +13,9 @@ const store = useSimulationStore()
 const regionOptions: SelectOption[] = REGIONS.map((r) => ({ label: r.label, value: r.code }))
 const monthOptions: SelectOption[] = ANALYSIS_MONTHS.map((m) => ({ label: `${m}월`, value: String(m) }))
 
+// 연도는 변경 불가 — 항상 직전 년도 데이터 기준임을 칩 prefix로만 표시
+const dataYearLabel = `${new Date().getFullYear() - 1}년`
+
 // ChipSelect는 string 모델 — 스토어의 타입 필드와 변환 프록시로 연결
 const region = computed<string>({
   get: () => store.settings.region ?? 'pangyo',
@@ -56,6 +59,7 @@ function onSaved(name: string): void {
         <ChipSelect
           v-model="month"
           :options="monthOptions"
+          :prefix="dataYearLabel"
           aria-label="분석 기준 월"
         />
       </div>
