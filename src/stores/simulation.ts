@@ -48,8 +48,11 @@ export const useSimulationStore = defineStore('simulation', () => {
    * 완료 후 result가 채워지므로 대시보드 진입 시 loadInitial()은 건너뛰어진다.
    */
   async function applyScenario(saved: SimulationSettings): Promise<void> {
-    // 지역·월이 없는 구버전 저장분은 기본값으로 되돌린다(이전 시나리오 값 잔류 방지)
-    Object.assign(settings, { region: 'pangyo', month: 10 }, saved)
+    // 지역이 없는 구버전 저장분과 월(백엔드 미저장, 항상 null)은 기본값으로 정규화한다
+    Object.assign(settings, saved, {
+      region: saved.region ?? 'pangyo',
+      month: saved.month ?? 10,
+    })
     await run()
   }
 

@@ -18,13 +18,6 @@ const selectedProxy = computed({
   get: () => props.selected,
   set: () => emit('toggle', props.scenario.id),
 })
-
-// "45%, 09~18시" → "45%". 운영시간은 v2.1에서 제거된 고정 기본값이라 표시하지 않는다.
-// 백엔드가 참여율만 내려주도록 계약이 정리되면 그대로 통과한다.
-const participationLabel = computed(() => {
-  const match = props.scenario.conditions.match(/\d+(?:\.\d+)?%/)
-  return match ? match[0] : props.scenario.conditions
-})
 </script>
 
 <template>
@@ -36,7 +29,7 @@ const participationLabel = computed(() => {
       {{ scenario.name }}
     </td>
     <td>{{ scenario.region }}</td>
-    <td>{{ participationLabel }}</td>
+    <td>{{ scenario.participationRate }}%</td>
     <td class="scenario-row__supply">
       +{{ scenario.supplyDelta }}면
     </td>

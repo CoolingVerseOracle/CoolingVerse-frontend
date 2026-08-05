@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import AppInput from '@/components/common/AppInput.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
+import { REGIONS } from '@/constants/regions'
 import { useScenarioStore } from '@/stores/scenario'
 import type { SelectOption } from '@/types/common'
 
 const store = useScenarioStore()
 
-// 백엔드 canonical 지역 값 기준 (현재 시드는 분당구 단일 — 지역 확장 시 목록 API 분리 검토)
+// 지역 필터는 코드 표준(pangyo/ingye, backend PR #23) — 라벨은 대시보드 지역 셀렉터와 공유
 const regionOptions: SelectOption[] = [
   { label: '지역 전체', value: 'all' },
-  { label: '성남시 분당구', value: '성남시 분당구' },
+  ...REGIONS.map((r) => ({ label: r.label, value: r.code })),
 ]
 
 const participationOptions: SelectOption[] = [
