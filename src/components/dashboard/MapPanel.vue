@@ -5,7 +5,7 @@ import MapLayerControls from './MapLayerControls.vue'
 import MapLegend from './MapLegend.vue'
 import TimeScrubberCard from './TimeScrubberCard.vue'
 import { isMapAvailable, loadNaverMaps } from '@/composables/useNaverMaps'
-import { drawHeatmap } from './heatmapCanvas'
+import { createHeatLayer, type HeatLayer } from './naverHeatLayer'
 import { chartColors } from '@/composables/useEchartsTheme'
 import { regionByCode } from '@/constants/regions'
 import { useDashboardStore } from '@/stores/dashboard'
@@ -15,17 +15,15 @@ const dashboard = useDashboardStore()
 const simulation = useSimulationStore()
 
 const mapEl = ref<HTMLDivElement | null>(null)
-const heatCanvasEl = ref<HTMLCanvasElement | null>(null)
 const mapReady = ref(false)
 const mapFailed = ref(false)
 
-// 지도 객체들은 반응형일 필요가 없다 — ref에 넣으면 프록시 래핑 비용만 생긴다
+// 지도 객체들은 반응형일 필요가 없다 — ref에 넣으면 프록시 래핑 비용만 생기고 SDK 내부와 충돌한다
 let map: naver.maps.Map | null = null
+let heatLayer: HeatLayer | null = null
 let clusterMarkers: naver.maps.Marker[] = []
 let mapListeners: naver.maps.MapEventListener[] = []
 let heatRaf = 0
-let heatRetries = 0
-let heatRetryTimer: ReturnType<typeof setTimeout> | null = null
 let destroyed = false
 
 function currentRegion() {
@@ -49,13 +47,14 @@ async function initMap(): Promise<void> {
       logoControlOptions: { position: maps.Position.BOTTOM_LEFT },
     })
     mapReady.value = true
-    // 팬/줌/리사이즈 시 히트맵 캔버스를 다시 그린다 (rAF로 스로틀)
+    heatLayer = createHeatLayer(18)
+    heatLayer.setMap(dashboard.heatmapOn ? map : null)
+    updateHeatData()
+    // 팬/줌 후 드러난 마진 영역을 다시 그린다 (드래그 중 위치 고정은 pane이 담당)
     mapListeners = [
       naver.maps.Event.addListener(map, 'bounds_changed', scheduleHeatDraw),
       naver.maps.Event.addListener(map, 'zoom_changed', scheduleHeatDraw),
     ]
-    window.addEventListener('resize', scheduleHeatDraw)
-    scheduleHeatDraw()
     renderClusters()
   } catch (error) {
     console.warn('[MapPanel] 지도 초기화 실패 — 플레이스홀더로 전환합니다.', error)
@@ -67,44 +66,13 @@ function scheduleHeatDraw(): void {
   if (heatRaf) return
   heatRaf = requestAnimationFrame(() => {
     heatRaf = 0
-    renderHeatmap()
+    if (!destroyed) heatLayer?.redraw()
   })
 }
 
-/**
- * 커스텀 캔버스 히트맵 — 네이버 visualization.HeatMap은 타일을 뷰포트 밖에 배치하는
- * 문제가 있어 사용하지 않는다. 격자 좌표를 뷰포트 픽셀로 변환해 직접 그린다.
- * 지도 생성 직후에는 projection/레이아웃이 준비 전일 수 있어 짧게 재시도한다
- * (재시도가 없으면 다음 사용자 조작 전까지 히트맵이 비어 보인다).
- */
-function renderHeatmap(): void {
-  const canvas = heatCanvasEl.value
-  if (!canvas || destroyed) return
-  const width = canvas.clientWidth
-  const height = canvas.clientHeight
-  const grids = dashboard.gridRisk?.grids
-  if (!map || !dashboard.heatmapOn || !grids?.length) {
-    drawHeatmap(canvas, [], width, height)
-    return
-  }
-  const projection = map.getProjection() as naver.maps.MapSystemProjection | undefined
-  if (!projection || width === 0 || height === 0) {
-    if (heatRetries < 20) {
-      heatRetries += 1
-      if (heatRetryTimer) clearTimeout(heatRetryTimer)
-      heatRetryTimer = setTimeout(() => {
-        heatRetryTimer = null
-        scheduleHeatDraw()
-      }, 150)
-    }
-    return
-  }
-  heatRetries = 0
-  const points = grids.map((g) => {
-    const offset = projection.fromCoordToOffset(new naver.maps.LatLng(g.lat, g.lng))
-    return { x: offset.x, y: offset.y, weight: g.riskScore / 100 }
-  })
-  drawHeatmap(canvas, points, width, height, 18)
+function updateHeatData(): void {
+  const grids = dashboard.gridRisk?.grids ?? []
+  heatLayer?.setData(grids.map((g) => ({ lat: g.lat, lng: g.lng, weight: g.riskScore / 100 })))
 }
 
 interface ClusterBucket {
@@ -138,13 +106,14 @@ function renderClusters(): void {
     const meanRisk = bucket.riskSum / bucket.count
     const color =
       meanRisk >= 65 ? chartColors.danger : meanRisk >= 40 ? chartColors.warning : chartColors.primary
-    const size = Math.min(44, 24 + Math.round(bucket.count / 12))
+    const size = Math.min(44, 26 + Math.round(bucket.count / 12))
+    // 흰 배경 + 색 테두리 — 반투명 배경 히트맵 위에서 또렷하게 보이는 조합
     clusterMarkers.push(
       new naver.maps.Marker({
         map,
         position: new naver.maps.LatLng(bucket.latSum / bucket.count, bucket.lngSum / bucket.count),
         icon: {
-          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};opacity:.85;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)">${bucket.count}</div>`,
+          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#fff;border:3px solid ${color};color:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(15,23,42,.35)">${bucket.count}</div>`,
           anchor: new naver.maps.Point(size / 2, size / 2),
         },
       }),
@@ -155,11 +124,16 @@ function renderClusters(): void {
 watch(
   () => dashboard.gridRisk,
   () => {
-    scheduleHeatDraw()
+    updateHeatData()
     renderClusters()
   },
 )
-watch(() => dashboard.heatmapOn, scheduleHeatDraw)
+watch(
+  () => dashboard.heatmapOn,
+  (on) => {
+    heatLayer?.setMap(on && map ? map : null)
+  },
+)
 watch(() => dashboard.clusterOn, renderClusters)
 watch(
   () => simulation.settings.region,
@@ -177,10 +151,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   destroyed = true
   if (heatRaf) cancelAnimationFrame(heatRaf)
-  if (heatRetryTimer) clearTimeout(heatRetryTimer)
-  window.removeEventListener('resize', scheduleHeatDraw)
   mapListeners.forEach((l) => naver.maps.Event.removeListener(l))
   mapListeners = []
+  heatLayer?.setMap(null)
+  heatLayer = null
   clusterMarkers.forEach((m) => m.setMap(null))
   map?.destroy()
   map = null
@@ -194,11 +168,6 @@ onBeforeUnmount(() => {
         <div
           ref="mapEl"
           class="map-panel__map"
-        />
-        <canvas
-          ref="heatCanvasEl"
-          class="map-panel__heat"
-          aria-hidden="true"
         />
         <div
           v-if="!mapReady"
@@ -274,15 +243,6 @@ onBeforeUnmount(() => {
     // inset에 의존하지 않고 명시적 크기로 뷰포트를 채운다
     width: 100%;
     height: 100%;
-  }
-
-  // 커스텀 히트맵 캔버스 — 지도 위, 오버레이 카드 아래
-  &__heat {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
   }
 
   &__placeholder {
