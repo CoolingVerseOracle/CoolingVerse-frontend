@@ -18,10 +18,8 @@ export async function fetchScenarios(filter: ScenarioFilter): Promise<Paginated<
   const keyword = filter.keyword.trim()
   if (keyword) params.set('keyword', keyword)
   if (filter.region !== 'all') params.set('region', filter.region)
-  // participation/timeSlot은 아직 백엔드 미지원 파라미터 — 서버가 무시하며,
-  // 쿼리 지원이 추가되면 프론트 변경 없이 동작한다 (이슈 #4)
+  // participation(lt10/gte10)은 백엔드 PR #12부터 지원 — 실동작 검증 완료 (이슈 #4)
   if (filter.participation !== 'all') params.set('participation', filter.participation)
-  if (filter.timeSlot !== 'all') params.set('timeSlot', filter.timeSlot)
 
   return http<Paginated<Scenario>>(`/scenarios?${params.toString()}`)
 }

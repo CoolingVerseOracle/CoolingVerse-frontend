@@ -18,12 +18,6 @@ const participationOptions: SelectOption[] = [
   { label: '10% 이상', value: 'gte10' },
 ]
 
-const timeSlotOptions: SelectOption[] = [
-  { label: '시간대 전체', value: 'all' },
-  { label: '주간 (09~18시)', value: 'day' },
-  { label: '야간 (18~23시)', value: 'night' },
-]
-
 const sortOptions: SelectOption[] = [
   { label: '최근 수정일순', value: 'updatedDesc' },
   { label: '오래된 수정일순', value: 'updatedAsc' },
@@ -42,11 +36,6 @@ const sortOptions: SelectOption[] = [
         v-model="store.filter.participation"
         :options="participationOptions"
         aria-label="참여율 필터"
-      />
-      <AppSelect
-        v-model="store.filter.timeSlot"
-        :options="timeSlotOptions"
-        aria-label="시간대 필터"
       />
       <AppInput
         v-model="store.filter.keyword"
