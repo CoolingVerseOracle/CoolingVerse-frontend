@@ -1,6 +1,14 @@
 /** 분석 대상 지역 코드 */
 export type RegionCode = 'pangyo' | 'ingye'
 
+/** grid-risk 조회 파라미터 — 실 API와 폴백 생성기가 공유 */
+export interface GridRiskParams {
+  hour: number
+  region: RegionCode
+  /** 마지막 실행에 반영된 참여율(%) — 실행 전이면 null, 쿼리에서 생략 */
+  participationRate?: number | null
+}
+
 /** 위험지수 보유 격자 1개 — 위험지수 없는 격자는 응답에 포함되지 않는다 */
 export interface GridRiskPoint {
   lat: number

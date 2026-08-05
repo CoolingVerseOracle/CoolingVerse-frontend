@@ -16,15 +16,12 @@ onMounted(() => {
   void dashboard.loadGridRisk()
 })
 
-// 스크러버·지역 변경 → 격자 위험지수 재조회 (드래그 연타 대응 디바운스)
-watch([() => dashboard.selectedHour, () => store.settings.region], () => {
-  dashboard.loadGridRiskDebounced()
-})
-
-// 시뮬레이션 실행 완료 → 적용 참여율로 재조회 (지도 projected·M-커브 반영)
+// 스크러버·지역·실행 참여율 변경 → 격자 위험지수 재조회.
+// 하나의 워처로 묶어 시나리오 열기처럼 지역·참여율이 함께 바뀌는 경우도 1회 조회로 합친다
+// (드래그 연타 대응 디바운스 겸용)
 watch(
-  () => store.appliedRate,
-  () => void dashboard.loadGridRisk(),
+  [() => dashboard.selectedHour, () => store.settings.region, () => store.appliedRate],
+  () => dashboard.loadGridRiskDebounced(),
 )
 </script>
 

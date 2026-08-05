@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchGridRisk } from '@/api/geo'
 import { useSimulationStore } from '@/stores/simulation'
@@ -15,17 +15,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const heatmapOn = ref(true)
   const clusterOn = ref(true)
 
-  const gridRisk = ref<GridRiskResponse | null>(null)
+  // 응답은 통째로 교체만 하므로 깊은 반응형이 불필요 — 1,306개 격자의 프록시 래핑을 피한다
+  const gridRisk = shallowRef<GridRiskResponse | null>(null)
   const gridLoading = ref(false)
   const gridIsFallback = ref(false)
+  /** 현재 gridRisk 응답을 만든 참여율 스냅샷 — 실행 전 조회면 null */
+  const gridAppliedRate = ref<number | null>(null)
 
   const globalRisk = computed(() => gridRisk.value?.globalRisk ?? null)
-  /** 참여율 적용 후 평균 위험지수 — 시뮬레이션 실행 전(appliedRate null)에는 표시하지 않는다 */
-  const globalRiskProjected = computed(() => {
-    const simulation = useSimulationStore()
-    if (simulation.appliedRate == null) return null
-    return gridRisk.value?.globalRiskProjected ?? null
-  })
+  /** 참여율 적용 후 평균 위험지수 — 참여율 없이 조회한 응답(실행 전)에는 표시하지 않는다 */
+  const globalRiskProjected = computed(() =>
+    gridAppliedRate.value == null ? null : (gridRisk.value?.globalRiskProjected ?? null),
+  )
   const breakdown = computed(() => gridRisk.value?.breakdown ?? null)
   const riskStateLabel = computed(() => {
     const risk = globalRisk.value
@@ -40,19 +41,26 @@ export const useDashboardStore = defineStore('dashboard', () => {
   let requestSeq = 0
 
   async function loadGridRisk(): Promise<void> {
+    // 대기 중인 디바운스 조회가 있으면 이 즉시 조회로 대체 — 같은 파라미터 이중 요청 방지
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
     const simulation = useSimulationStore()
     const seq = ++requestSeq
+    // 마지막 실행에 반영된 참여율 — projected 계산 입력 (실행 전이면 생략)
+    const participationRate = simulation.appliedRate
     gridLoading.value = true
     try {
       const { data, isFallback } = await fetchGridRisk({
         hour: selectedHour.value,
         region: simulation.settings.region ?? 'pangyo',
-        // 마지막 실행에 반영된 참여율 — projected 계산 입력 (실행 전이면 생략)
-        participationRate: simulation.appliedRate,
+        participationRate,
       })
       if (seq !== requestSeq) return
       gridRisk.value = data
       gridIsFallback.value = isFallback
+      gridAppliedRate.value = participationRate
     } finally {
       if (seq === requestSeq) gridLoading.value = false
     }

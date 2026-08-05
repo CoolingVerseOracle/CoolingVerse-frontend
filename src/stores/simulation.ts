@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchSimulationResult, runSimulation } from '@/api/simulation'
+import { DEFAULT_PARTICIPATION_RATE } from '@/constants/simulation'
 import type { SimulationResult, SimulationSettings } from '@/types/simulation'
 
 /** 대시보드 — 시나리오 설정 폼 + 시뮬레이션 결과(KPI/차트) */
@@ -8,7 +9,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const settings = reactive<SimulationSettings>({
     openToPublic: true,
     residentsOnly: false,
-    participationRate: 45,
+    participationRate: DEFAULT_PARTICIPATION_RATE,
     openFrom: '09:00',
     openTo: '18:00',
     commercialRadiusM: 500,
