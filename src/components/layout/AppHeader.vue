@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import NavTabs from './NavTabs.vue'
-import RegionSelector from './RegionSelector.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
-const region = ref('pangyo')
 
 function onLogout(): void {
   auth.logout()
@@ -23,7 +20,6 @@ function onLogout(): void {
       </h1>
       <NavTabs class="app-header__tabs" />
       <div class="app-header__actions">
-        <RegionSelector v-model="region" />
         <button
           class="app-header__logout"
           type="button"

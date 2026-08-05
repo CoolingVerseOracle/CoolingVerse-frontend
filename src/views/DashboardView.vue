@@ -1,76 +1,47 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import BaseCard from '@/components/common/BaseCard.vue'
-import AppButton from '@/components/common/AppButton.vue'
-import KpiCardRow from '@/components/dashboard/KpiCardRow.vue'
-import ScenarioSettingsPanel from '@/components/dashboard/ScenarioSettingsPanel.vue'
+import { onMounted, watch } from 'vue'
+import ScenarioControlCard from '@/components/dashboard/ScenarioControlCard.vue'
+import ImpactKpiStack from '@/components/dashboard/ImpactKpiStack.vue'
 import MapPanel from '@/components/dashboard/MapPanel.vue'
-import MetricChangePanel from '@/components/dashboard/MetricChangePanel.vue'
-import ParticipationDonut from '@/components/charts/ParticipationDonut.vue'
-import HourlyParkingLine from '@/components/charts/HourlyParkingLine.vue'
-import RiskIndexLine from '@/components/charts/RiskIndexLine.vue'
+import MCurveCard from '@/components/dashboard/MCurveCard.vue'
+import RiskBreakdownCard from '@/components/dashboard/RiskBreakdownCard.vue'
+import { useDashboardStore } from '@/stores/dashboard'
 import { useSimulationStore } from '@/stores/simulation'
 
 const store = useSimulationStore()
+const dashboard = useDashboardStore()
 
 onMounted(() => {
   void store.loadInitial()
+  void dashboard.loadGridRisk()
 })
 
-function onDownloadReport(): void {
-  // TODO: 리포트 다운로드 API 연동
-  window.alert('리포트 다운로드는 백엔드 연동 후 제공됩니다.')
-}
+// 스크러버·지역 변경 → 격자 위험지수 재조회 (드래그 연타 대응 디바운스)
+watch([() => dashboard.selectedHour, () => store.settings.region], () => {
+  dashboard.loadGridRiskDebounced()
+})
 </script>
 
 <template>
-  <div class="dashboard-view">
-    <header class="dashboard-view__header">
-      <div>
-        <h2 class="dashboard-view__title">
-          종합 시뮬레이션 대시보드
-        </h2>
-        <p class="dashboard-view__subtitle">
-          현재 적용 중인 시나리오를 바탕으로 예측된 정책 효과입니다.
-        </p>
-      </div>
-      <div class="dashboard-view__actions">
-        <AppButton variant="secondary">
-          📅 2023.10 기준
-        </AppButton>
-        <AppButton
-          variant="secondary"
-          @click="onDownloadReport"
-        >
-          ⬇ 리포트 다운로드
-        </AppButton>
-      </div>
-    </header>
-
+  <div class="dashboard-v2">
     <template v-if="store.result">
-      <KpiCardRow :metrics="store.result.kpis" />
-
-      <div class="dashboard-view__middle">
-        <ScenarioSettingsPanel />
-        <MapPanel />
-        <MetricChangePanel :metrics="store.result.metricChanges" />
-      </div>
-
-      <div class="dashboard-view__charts">
-        <BaseCard title="주차 지원 현황">
-          <ParticipationDonut :data="store.result.participation" />
-        </BaseCard>
-        <BaseCard title="시간대별 유휴 주차 자원량 예측">
-          <HourlyParkingLine :data="store.result.hourlySupply" />
-        </BaseCard>
-        <BaseCard title="시나리오별 도시 교통·환경 위험지수 변화">
-          <RiskIndexLine :data="store.result.riskTrend" />
-        </BaseCard>
+      <div class="dashboard-v2__grid">
+        <section class="dashboard-v2__left">
+          <ScenarioControlCard />
+          <ImpactKpiStack :metrics="store.result.kpis" />
+        </section>
+        <section class="dashboard-v2__center">
+          <MapPanel />
+        </section>
+        <section class="dashboard-v2__right">
+          <MCurveCard />
+          <RiskBreakdownCard />
+        </section>
       </div>
     </template>
     <p
       v-else
-      class="dashboard-view__loading"
+      class="dashboard-v2__loading"
     >
       데이터를 불러오는 중입니다…
     </p>
@@ -78,89 +49,77 @@ function onDownloadReport(): void {
 </template>
 
 <style scoped lang="scss">
-.dashboard-view {
-  display: flex;
-  flex-direction: column;
-  gap: $space-5;
-
-  &__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: $space-4;
-  }
-
-  &__title {
-    font-size: $font-size-xl;
-    font-weight: 700;
-    color: $color-text;
-  }
-
-  &__subtitle {
-    margin-top: $space-1;
-    font-size: $font-size-base;
-    color: $color-text-secondary;
-  }
-
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $space-2;
-  }
-
-  &__middle {
+.dashboard-v2 {
+  &__grid {
     display: grid;
-    grid-template-columns: 250px 1fr 250px;
+    grid-template-columns: 360px minmax(0, 1fr) 320px;
+    grid-template-areas: 'left center right';
     gap: $space-4;
+    align-items: stretch;
 
-    // 그리드 아이템 기본 min-width:auto 때문에 차트 캔버스가 트랙 축소를 막는 것 방지
+    // 그리드 아이템 기본 min-width:auto가 지도·차트 캔버스의 트랙 축소를 막는 것 방지
     > * {
       min-width: 0;
     }
+  }
 
-    // 중간 폭: 지도를 첫 행 전체로 올리고 사이드 패널 2개를 아래 2열로
-    @include below($bp-lg) {
-      grid-template-columns: 1fr 1fr;
+  &__left {
+    grid-area: left;
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+  }
 
-      > :nth-child(2) {
-        grid-column: 1 / -1;
-        grid-row: 1;
-      }
-    }
+  &__center {
+    grid-area: center;
+    min-height: 560px;
+    display: flex;
+    flex-direction: column;
 
-    @include below($bp-sm) {
-      grid-template-columns: 1fr;
-
-      > :nth-child(2) {
-        grid-column: auto;
-        grid-row: auto;
-      }
+    > * {
+      flex: 1;
     }
   }
 
-  &__charts {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+  &__right {
+    grid-area: right;
+    display: flex;
+    flex-direction: column;
     gap: $space-4;
+  }
 
-    > * {
-      min-width: 0;
+  // 중간 폭: 지도를 첫 행 전체로, 좌·우 패널을 아래 2열로
+  @include below($bp-lg) {
+    &__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+        'center center'
+        'left right';
     }
 
-    @include below($bp-lg) {
-      grid-template-columns: 1fr 1fr;
-
-      > :last-child {
-        grid-column: 1 / -1;
-      }
+    &__center {
+      min-height: 480px;
     }
+  }
 
-    @include below($bp-md) {
+  @include below($bp-md) {
+    &__grid {
+      gap: $space-3;
+    }
+  }
+
+  // 좁은 폭: 지도 → 시나리오 → 리스크 순 1열
+  @include below($bp-sm) {
+    &__grid {
       grid-template-columns: 1fr;
+      grid-template-areas:
+        'center'
+        'left'
+        'right';
+    }
 
-      > :last-child {
-        grid-column: auto;
-      }
+    &__center {
+      min-height: 420px;
     }
   }
 

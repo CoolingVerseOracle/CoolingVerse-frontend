@@ -3,6 +3,9 @@ const tabs = [
   { name: 'dashboard', label: '대시보드' },
   { name: 'scenarios', label: '시나리오 관리' },
 ]
+
+// v2.1 디자인의 세 번째 메뉴 — 라우트 신설 전까지 비활성 표기만 한다
+const disabledTabs = [{ label: '분석 기준' }]
 </script>
 
 <template>
@@ -19,6 +22,15 @@ const tabs = [
     >
       {{ tab.label }}
     </RouterLink>
+    <span
+      v-for="tab in disabledTabs"
+      :key="tab.label"
+      class="nav-tabs__tab nav-tabs__tab--disabled"
+      aria-disabled="true"
+      title="준비 중"
+    >
+      {{ tab.label }}
+    </span>
   </nav>
 </template>
 
@@ -41,6 +53,15 @@ const tabs = [
       color: $color-primary;
       font-weight: 600;
       border-bottom-color: $color-primary;
+    }
+
+    &--disabled {
+      color: $color-text-muted;
+      cursor: not-allowed;
+
+      &:hover {
+        color: $color-text-muted;
+      }
     }
   }
 }
