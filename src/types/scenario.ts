@@ -20,7 +20,6 @@ export interface Scenario {
 export interface ScenarioFilter {
   region: string
   participation: string
-  timeSlot: string
   keyword: string
   sort: 'updatedDesc' | 'updatedAsc'
   page: number

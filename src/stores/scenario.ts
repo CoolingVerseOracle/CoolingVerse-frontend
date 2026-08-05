@@ -9,7 +9,6 @@ export const useScenarioStore = defineStore('scenario', () => {
   const filter = reactive<ScenarioFilter>({
     region: 'all',
     participation: 'all',
-    timeSlot: 'all',
     keyword: '',
     sort: 'updatedDesc',
     page: 1,
@@ -42,7 +41,7 @@ export const useScenarioStore = defineStore('scenario', () => {
   // page가 이미 1이면 직접 조회하고, 아니면 페이지 리셋이 page watcher를 통해
   // 조회를 트리거하므로 어느 경우든 load()는 정확히 1회 실행된다.
   watch(
-    () => [filter.region, filter.participation, filter.timeSlot, filter.keyword, filter.sort, filter.pageSize],
+    () => [filter.region, filter.participation, filter.keyword, filter.sort, filter.pageSize],
     () => {
       if (filter.page === 1) void load()
       else filter.page = 1

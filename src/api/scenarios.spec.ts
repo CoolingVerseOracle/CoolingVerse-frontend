@@ -19,7 +19,6 @@ function makeFilter(overrides: Partial<ScenarioFilter> = {}): ScenarioFilter {
   return {
     region: 'all',
     participation: 'all',
-    timeSlot: 'all',
     keyword: '',
     sort: 'updatedDesc',
     page: 1,
@@ -43,7 +42,6 @@ describe('fetchScenarios 쿼리스트링 조립', () => {
     expect(q.has('keyword')).toBe(false)
     expect(q.has('region')).toBe(false)
     expect(q.has('participation')).toBe(false)
-    expect(q.has('timeSlot')).toBe(false)
   })
 
   it('keyword는 trim해서 싣고, 공백뿐이면 생략한다', async () => {
@@ -62,10 +60,11 @@ describe('fetchScenarios 쿼리스트링 조립', () => {
     expect(queryOf().get('region')).toBe('성남시 분당구')
   })
 
-  it("participation/timeSlot은 'all'이 아닐 때만 싣는다 (백엔드 미지원이라도 전송)", async () => {
-    await fetchScenarios(makeFilter({ participation: 'gte10', timeSlot: 'day' }))
-    const q = queryOf()
-    expect(q.get('participation')).toBe('gte10')
-    expect(q.get('timeSlot')).toBe('day')
+  it("participation은 'all'이 아닐 때만 싣는다", async () => {
+    await fetchScenarios(makeFilter({ participation: 'gte10' }))
+    expect(queryOf().get('participation')).toBe('gte10')
+
+    await fetchScenarios(makeFilter({ participation: 'all' }))
+    expect(queryOf().has('participation')).toBe(false)
   })
 })
