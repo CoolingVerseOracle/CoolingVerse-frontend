@@ -1,4 +1,5 @@
 import type { MetricTone } from './common'
+import type { RegionCode } from './geo'
 
 /** 대시보드 KPI 카드 1장 */
 export interface KpiMetric {
@@ -27,6 +28,10 @@ export interface SimulationSettings {
   openTo: string
   /** 상업시설 반경(m) */
   commercialRadiusM: number
+  /** 분석 대상 지역 — 옵셔널: 구버전 저장 시나리오·백엔드 호환 (기본 'pangyo') */
+  region?: RegionCode
+  /** 분석 기준 월(1–12) — 옵셔널: 구버전 저장 시나리오·백엔드 호환 (기본 10) */
+  month?: number
 }
 
 /** before/after 비교 바 1쌍 */
