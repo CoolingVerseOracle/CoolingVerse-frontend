@@ -53,6 +53,22 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10
 }
 
+/**
+ * 참여율 → 위험지수 감소폭(절대값). 백엔드 SimulationService의 앵커 표와 동일한 값·방식
+ * (분석 가이드 시나리오 표 — 개방 효과가 수확 체감이라 구간별 선형 보간).
+ * 실모델처럼 전 격자·전 시간대에 같은 점수를 빼는 평행 이동으로 적용한다.
+ */
+const ANCHOR_RATE = [0, 10, 30, 50, 70, 100]
+const ANCHOR_DELTA = [0, 0.36, 0.96, 1.31, 1.52, 1.68]
+
+function riskDelta(rate: number): number {
+  const clamped = Math.min(100, Math.max(0, rate))
+  const upper = ANCHOR_RATE.findIndex((anchor) => clamped <= anchor)
+  if (upper <= 0) return ANCHOR_DELTA[0]
+  const t = (clamped - ANCHOR_RATE[upper - 1]) / (ANCHOR_RATE[upper] - ANCHOR_RATE[upper - 1])
+  return ANCHOR_DELTA[upper - 1] + t * (ANCHOR_DELTA[upper] - ANCHOR_DELTA[upper - 1])
+}
+
 function toLevel(score: number): RiskLevel {
   if (score >= 65) return 'high'
   if (score >= 40) return 'medium'
@@ -110,9 +126,7 @@ function baseGrid(region: RegionCode): BasePoint[] {
 
 export function buildGridRiskFallback(params: GridRiskParams): GridRiskResponse {
   const weight = hourWeight(params.hour)
-  // 참여율 비례 균일 감쇠 (기본 45% ≈ 완화율 15%, 하한 0.55) — 백엔드 초기 모델과 같은 성격
-  const rate = params.participationRate ?? DEFAULT_PARTICIPATION_RATE
-  const relief = Math.max(0.55, 1 - rate / 300)
+  const delta = riskDelta(params.participationRate ?? DEFAULT_PARTICIPATION_RATE)
 
   const grids: GridRiskPoint[] = []
   let total = 0
@@ -123,21 +137,21 @@ export function buildGridRiskFallback(params: GridRiskParams): GridRiskResponse 
       lat: point.lat,
       lng: point.lng,
       riskScore: score,
-      projectedRiskScore: round1(score * relief),
+      projectedRiskScore: round1(Math.max(0, score - delta)),
     })
   }
 
   const globalRisk = round1(total / GRID_COUNT)
 
-  // 시간대별 M-커브 — 현재 vs 시나리오 적용(참여율 비례 감쇠)
+  // 시간대별 M-커브 — 현재 vs 시나리오 적용(절대 차감 평행 이동)
   const meanBase = globalRisk / weight
   const hourlyCurrent = Array.from({ length: 24 }, (_, h) => round1(meanBase * hourWeight(h)))
-  const hourlyProjected = hourlyCurrent.map((v) => round1(v * relief))
+  const hourlyProjected = hourlyCurrent.map((v) => round1(Math.max(0, v - delta)))
 
   return {
     hour: params.hour,
     globalRisk,
-    globalRiskProjected: round1(globalRisk * relief),
+    globalRiskProjected: round1(Math.max(0, globalRisk - delta)),
     grids,
     breakdown: {
       parking: factor(globalRisk + 18),
