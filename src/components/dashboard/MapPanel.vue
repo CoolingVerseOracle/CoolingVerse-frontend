@@ -5,6 +5,7 @@ import MapLayerControls from './MapLayerControls.vue'
 import MapLegend from './MapLegend.vue'
 import TimeScrubberCard from './TimeScrubberCard.vue'
 import { isMapAvailable, loadNaverMaps } from '@/composables/useNaverMaps'
+import { drawHeatmap } from './heatmapCanvas'
 import { chartColors } from '@/composables/useEchartsTheme'
 import { regionByCode } from '@/constants/regions'
 import { useDashboardStore } from '@/stores/dashboard'
@@ -14,13 +15,15 @@ const dashboard = useDashboardStore()
 const simulation = useSimulationStore()
 
 const mapEl = ref<HTMLDivElement | null>(null)
+const heatCanvasEl = ref<HTMLCanvasElement | null>(null)
 const mapReady = ref(false)
 const mapFailed = ref(false)
 
 // 지도 객체들은 반응형일 필요가 없다 — ref에 넣으면 프록시 래핑 비용만 생긴다
 let map: naver.maps.Map | null = null
-let heatmap: naver.maps.visualization.HeatMap | null = null
 let clusterMarkers: naver.maps.Marker[] = []
+let mapListeners: naver.maps.MapEventListener[] = []
+let heatRaf = 0
 let destroyed = false
 
 function currentRegion() {
@@ -44,7 +47,13 @@ async function initMap(): Promise<void> {
       logoControlOptions: { position: maps.Position.BOTTOM_LEFT },
     })
     mapReady.value = true
-    renderHeatmap()
+    // 팬/줌/리사이즈 시 히트맵 캔버스를 다시 그린다 (rAF로 스로틀)
+    mapListeners = [
+      naver.maps.Event.addListener(map, 'bounds_changed', scheduleHeatDraw),
+      naver.maps.Event.addListener(map, 'zoom_changed', scheduleHeatDraw),
+    ]
+    window.addEventListener('resize', scheduleHeatDraw)
+    scheduleHeatDraw()
     renderClusters()
   } catch (error) {
     console.warn('[MapPanel] 지도 초기화 실패 — 플레이스홀더로 전환합니다.', error)
@@ -52,19 +61,34 @@ async function initMap(): Promise<void> {
   }
 }
 
-/** 히트맵 레이어 재생성 — setData 타입이 WeightedLocation을 받지 않아 재생성으로 갱신 (1,306개는 저비용) */
-function renderHeatmap(): void {
-  if (!map) return
-  heatmap?.setMap(null)
-  heatmap = null
-  const grids = dashboard.gridRisk?.grids
-  if (!dashboard.heatmapOn || !grids?.length) return
-  heatmap = new naver.maps.visualization.HeatMap({
-    map,
-    data: grids.map((g) => new naver.maps.visualization.WeightedLocation(g.lat, g.lng, g.riskScore / 100)),
-    radius: 18,
-    opacity: 0.75,
+function scheduleHeatDraw(): void {
+  if (heatRaf) return
+  heatRaf = requestAnimationFrame(() => {
+    heatRaf = 0
+    renderHeatmap()
   })
+}
+
+/**
+ * 커스텀 캔버스 히트맵 — 네이버 visualization.HeatMap은 타일을 뷰포트 밖에 배치하는
+ * 문제가 있어 사용하지 않는다. 격자 좌표를 뷰포트 픽셀로 변환해 직접 그린다.
+ */
+function renderHeatmap(): void {
+  const canvas = heatCanvasEl.value
+  if (!canvas) return
+  const width = canvas.clientWidth
+  const height = canvas.clientHeight
+  const grids = dashboard.gridRisk?.grids
+  if (!map || !dashboard.heatmapOn || !grids?.length) {
+    drawHeatmap(canvas, [], width, height)
+    return
+  }
+  const projection = map.getProjection()
+  const points = grids.map((g) => {
+    const offset = projection.fromCoordToOffset(new naver.maps.LatLng(g.lat, g.lng))
+    return { x: offset.x, y: offset.y, weight: g.riskScore / 100 }
+  })
+  drawHeatmap(canvas, points, width, height, 18)
 }
 
 interface ClusterBucket {
@@ -115,11 +139,11 @@ function renderClusters(): void {
 watch(
   () => dashboard.gridRisk,
   () => {
-    renderHeatmap()
+    scheduleHeatDraw()
     renderClusters()
   },
 )
-watch(() => dashboard.heatmapOn, renderHeatmap)
+watch(() => dashboard.heatmapOn, scheduleHeatDraw)
 watch(() => dashboard.clusterOn, renderClusters)
 watch(
   () => simulation.settings.region,
@@ -136,7 +160,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   destroyed = true
-  heatmap?.setMap(null)
+  if (heatRaf) cancelAnimationFrame(heatRaf)
+  window.removeEventListener('resize', scheduleHeatDraw)
+  mapListeners.forEach((l) => naver.maps.Event.removeListener(l))
+  mapListeners = []
   clusterMarkers.forEach((m) => m.setMap(null))
   map?.destroy()
   map = null
@@ -150,6 +177,11 @@ onBeforeUnmount(() => {
         <div
           ref="mapEl"
           class="map-panel__map"
+        />
+        <canvas
+          ref="heatCanvasEl"
+          class="map-panel__heat"
+          aria-hidden="true"
         />
         <div
           v-if="!mapReady"
@@ -221,6 +253,19 @@ onBeforeUnmount(() => {
   &__map {
     position: absolute;
     inset: 0;
+    // 네이버 SDK가 컨테이너에 인라인 position: relative를 심어 absolute가 무효화될 수 있어
+    // inset에 의존하지 않고 명시적 크기로 뷰포트를 채운다
+    width: 100%;
+    height: 100%;
+  }
+
+  // 커스텀 히트맵 캔버스 — 지도 위, 오버레이 카드 아래
+  &__heat {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
   }
 
   &__placeholder {

@@ -26,7 +26,8 @@ export function loadNaverMaps(): Promise<typeof naver.maps> {
     }
 
     const script = document.createElement('script')
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}&submodules=visualization`
+    // 히트맵은 커스텀 캔버스로 그리므로 visualization 서브모듈은 불필요
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}`
     script.async = true
 
     const timeout = setTimeout(() => {
@@ -34,10 +35,22 @@ export function loadNaverMaps(): Promise<typeof naver.maps> {
     }, SCRIPT_TIMEOUT_MS)
 
     script.onload = () => {
-      clearTimeout(timeout)
-      // onload 시점에 visualization 서브모듈까지 준비돼 있다
-      if (typeof naver !== 'undefined' && naver.maps) resolve(naver.maps)
-      else reject(new Error('네이버 지도 SDK 초기화 실패'))
+      if (typeof naver === 'undefined' || !naver.maps) {
+        clearTimeout(timeout)
+        reject(new Error('네이버 지도 SDK 초기화 실패'))
+        return
+      }
+      // visualization 등 서브모듈은 maps.js onload 이후 비동기로 로드된다 —
+      // jsContentLoaded 전에 resolve하면 naver.maps.visualization이 undefined다
+      if (naver.maps.jsContentLoaded) {
+        clearTimeout(timeout)
+        resolve(naver.maps)
+        return
+      }
+      naver.maps.onJSContentLoaded = () => {
+        clearTimeout(timeout)
+        resolve(naver.maps)
+      }
     }
     script.onerror = () => {
       clearTimeout(timeout)
