@@ -12,11 +12,15 @@ export const useSimulationStore = defineStore('simulation', () => {
     openFrom: '09:00',
     openTo: '18:00',
     commercialRadiusM: 500,
+    region: 'pangyo',
+    month: 10,
   })
 
   const result = ref<SimulationResult | null>(null)
   const loading = ref(false)
   const running = ref(false)
+  /** 마지막 실행에 반영된 참여율 — 슬라이더 값과 구분해 "현재 n%" 표기에 사용 (실행 전 null) */
+  const appliedRate = ref<number | null>(null)
 
   async function loadInitial(): Promise<void> {
     if (result.value || loading.value) return
@@ -32,6 +36,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     running.value = true
     try {
       result.value = await runSimulation({ ...settings })
+      appliedRate.value = settings.participationRate
     } finally {
       running.value = false
     }
@@ -42,9 +47,10 @@ export const useSimulationStore = defineStore('simulation', () => {
    * 완료 후 result가 채워지므로 대시보드 진입 시 loadInitial()은 건너뛰어진다.
    */
   async function applyScenario(saved: SimulationSettings): Promise<void> {
-    Object.assign(settings, saved)
+    // 지역·월이 없는 구버전 저장분은 기본값으로 되돌린다(이전 시나리오 값 잔류 방지)
+    Object.assign(settings, { region: 'pangyo', month: 10 }, saved)
     await run()
   }
 
-  return { settings, result, loading, running, loadInitial, run, applyScenario }
+  return { settings, result, loading, running, appliedRate, loadInitial, run, applyScenario }
 })
