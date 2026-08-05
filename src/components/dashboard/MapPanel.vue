@@ -24,6 +24,8 @@ let map: naver.maps.Map | null = null
 let clusterMarkers: naver.maps.Marker[] = []
 let mapListeners: naver.maps.MapEventListener[] = []
 let heatRaf = 0
+let heatRetries = 0
+let heatRetryTimer: ReturnType<typeof setTimeout> | null = null
 let destroyed = false
 
 function currentRegion() {
@@ -72,10 +74,12 @@ function scheduleHeatDraw(): void {
 /**
  * 커스텀 캔버스 히트맵 — 네이버 visualization.HeatMap은 타일을 뷰포트 밖에 배치하는
  * 문제가 있어 사용하지 않는다. 격자 좌표를 뷰포트 픽셀로 변환해 직접 그린다.
+ * 지도 생성 직후에는 projection/레이아웃이 준비 전일 수 있어 짧게 재시도한다
+ * (재시도가 없으면 다음 사용자 조작 전까지 히트맵이 비어 보인다).
  */
 function renderHeatmap(): void {
   const canvas = heatCanvasEl.value
-  if (!canvas) return
+  if (!canvas || destroyed) return
   const width = canvas.clientWidth
   const height = canvas.clientHeight
   const grids = dashboard.gridRisk?.grids
@@ -83,7 +87,19 @@ function renderHeatmap(): void {
     drawHeatmap(canvas, [], width, height)
     return
   }
-  const projection = map.getProjection()
+  const projection = map.getProjection() as naver.maps.MapSystemProjection | undefined
+  if (!projection || width === 0 || height === 0) {
+    if (heatRetries < 20) {
+      heatRetries += 1
+      if (heatRetryTimer) clearTimeout(heatRetryTimer)
+      heatRetryTimer = setTimeout(() => {
+        heatRetryTimer = null
+        scheduleHeatDraw()
+      }, 150)
+    }
+    return
+  }
+  heatRetries = 0
   const points = grids.map((g) => {
     const offset = projection.fromCoordToOffset(new naver.maps.LatLng(g.lat, g.lng))
     return { x: offset.x, y: offset.y, weight: g.riskScore / 100 }
@@ -161,6 +177,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   destroyed = true
   if (heatRaf) cancelAnimationFrame(heatRaf)
+  if (heatRetryTimer) clearTimeout(heatRetryTimer)
   window.removeEventListener('resize', scheduleHeatDraw)
   mapListeners.forEach((l) => naver.maps.Event.removeListener(l))
   mapListeners = []

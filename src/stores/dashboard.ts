@@ -11,8 +11,9 @@ import type { GridRiskResponse } from '@/types/geo'
  */
 export const useDashboardStore = defineStore('dashboard', () => {
   const selectedHour = ref(13)
+  // 레이어는 기본 표시 — 끄는 것은 사용자가 수동으로
   const heatmapOn = ref(true)
-  const clusterOn = ref(false)
+  const clusterOn = ref(true)
 
   const gridRisk = ref<GridRiskResponse | null>(null)
   const gridLoading = ref(false)
