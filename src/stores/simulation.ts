@@ -50,10 +50,14 @@ export const useSimulationStore = defineStore('simulation', () => {
    * 완료 후 result가 채워지므로 대시보드 진입 시 loadInitial()은 건너뛰어진다.
    */
   async function applyScenario(saved: SimulationSettings): Promise<void> {
-    // 지역이 없는 구버전 저장분과 월(백엔드 미저장, 항상 null)은 기본값으로 정규화한다
+    // 지역이 없는 구버전 저장분과 월(백엔드 미저장, 항상 null)은 기본값으로 정규화한다.
+    // 개방 대상 2종은 v2.1에 조작 UI가 없어 true 고정 — false로 저장된 구버전 스냅샷을
+    // 복원하면 기대효과가 전부 0이 되는 문제(PR #28 리뷰)가 되살아나므로 함께 고정한다
     Object.assign(settings, saved, {
       region: saved.region ?? 'pangyo',
       month: saved.month ?? 10,
+      openToPublic: true,
+      residentsOnly: true,
     })
     await run()
   }
