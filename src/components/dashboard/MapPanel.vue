@@ -111,6 +111,7 @@ function renderClusters(): void {
     const meanRisk = bucket.riskSum / bucket.count
     const color =
       meanRisk >= 65 ? chartColors.danger : meanRisk >= 40 ? chartColors.warning : chartColors.primary
+    // 크기는 격자 개수(밀도) 유지 — 숫자·색상은 평균 위험도로 통일 (이슈 #30)
     const size = Math.min(44, 26 + Math.round(bucket.count / 12))
     // 흰 배경 + 색 테두리 — 반투명 배경 히트맵 위에서 또렷하게 보이는 조합
     clusterMarkers.push(
@@ -118,7 +119,7 @@ function renderClusters(): void {
         map,
         position: new naver.maps.LatLng(bucket.latSum / bucket.count, bucket.lngSum / bucket.count),
         icon: {
-          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#fff;border:3px solid ${color};color:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(15,23,42,.35)">${bucket.count}</div>`,
+          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#fff;border:3px solid ${color};color:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(15,23,42,.35)">${Math.round(meanRisk)}</div>`,
           anchor: new naver.maps.Point(size / 2, size / 2),
         },
       }),
