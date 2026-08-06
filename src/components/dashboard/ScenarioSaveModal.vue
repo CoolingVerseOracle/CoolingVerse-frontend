@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import { createScenario } from '@/api/scenarios'
+import { regionByCode } from '@/constants/regions'
 import { useSimulationStore } from '@/stores/simulation'
 
 const emit = defineEmits<{ close: []; saved: [name: string] }>()
 
 const store = useSimulationStore()
+
+// 요약은 v2.1 카드에서 실제로 조작 가능한 값(참여율·지역·월)만 보여준다.
+// 구 설정(개방 시간·상업시설 반경)은 조작 UI가 없어 노출하지 않는다 (이슈 #25)
+const summaryLabel = computed(() => {
+  const regionLabel = regionByCode(store.settings.region ?? 'pangyo').label
+  const dataYear = new Date().getFullYear() - 1
+  return `참여율 ${store.settings.participationRate}% · ${regionLabel} · ${dataYear}년 ${store.settings.month ?? 10}월`
+})
 
 const name = ref('')
 const memo = ref('')
@@ -66,9 +75,7 @@ async function onSubmit(): Promise<void> {
       </label>
 
       <p class="save-modal__summary">
-        현재 설정 — 참여율 {{ store.settings.participationRate }}% ·
-        {{ store.settings.openFrom }}~{{ store.settings.openTo }} ·
-        반경 {{ store.settings.commercialRadiusM }}m
+        현재 설정 — {{ summaryLabel }}
         <br>저장 시 서버가 결과(공급·위험지수·CO2)를 계산해 함께 보관합니다.
       </p>
 
