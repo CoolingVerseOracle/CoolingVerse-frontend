@@ -30,15 +30,7 @@ export class HttpError extends Error {
   }
 }
 
-export interface HttpOptions {
-  /**
-   * false면 401을 전역 로그아웃으로 처리하지 않고 HttpError만 던진다.
-   * 미구현/폴백 가능 엔드포인트의 401이 세션 종료로 번지는 것을 막을 때 사용.
-   */
-  notifyUnauthorized?: boolean
-}
-
-export async function http<T>(path: string, init: RequestInit = {}, options: HttpOptions = {}): Promise<T> {
+export async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
   if (staticToken) headers.set('Authorization', `Bearer ${staticToken}`)
@@ -46,7 +38,7 @@ export async function http<T>(path: string, init: RequestInit = {}, options: Htt
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   if (!res.ok) {
     // 토큰 무효(서버 재시작 포함) — 세션을 정리하고 로그인 화면으로 보낸다
-    if (res.status === 401 && options.notifyUnauthorized !== false) onUnauthorized?.()
+    if (res.status === 401) onUnauthorized?.()
     throw new HttpError(res.status, `요청 실패 (${res.status}): ${path}`)
   }
   // DELETE 등 body 없는 응답(204)은 json 파싱을 건너뛴다

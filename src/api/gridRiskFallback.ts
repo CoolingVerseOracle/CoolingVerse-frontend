@@ -1,10 +1,18 @@
 /**
  * grid-risk 개발용 폴백 데이터 생성기.
- * 백엔드 GET /simulate/grid-risk 미구현/장애 시 프론트 개발·리뷰가 막히지 않도록
+ * 백엔드 장애 또는 데이터 미보유 지역(현재 ingye는 404) 조회 시 화면이 막히지 않도록
  * 시드 고정 의사난수로 항상 같은 격자 분포를 만들어낸다. (mock API 계층이 아니라
  * 명시적 graceful-degradation 경로 — 사용처에서 isFallback으로 표기된다)
  */
-import type { GridRiskPoint, GridRiskResponse, RegionCode, RiskFactor, RiskLevel } from '@/types/geo'
+import { DEFAULT_PARTICIPATION_RATE } from '@/constants/simulation'
+import type {
+  GridRiskParams,
+  GridRiskPoint,
+  GridRiskResponse,
+  RegionCode,
+  RiskFactor,
+  RiskLevel,
+} from '@/types/geo'
 
 /** 위험지수 보유 격자 수 — 백엔드 협의값(판교 시드 기준) */
 const GRID_COUNT = 1306
@@ -40,6 +48,11 @@ function hourWeight(hour: number): number {
   return 0.4 + 0.6 * Math.max(morning, evening)
 }
 
+/** 소수 첫째 자리 반올림 */
+function round1(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
 function toLevel(score: number): RiskLevel {
   if (score >= 65) return 'high'
   if (score >= 40) return 'medium'
@@ -47,15 +60,27 @@ function toLevel(score: number): RiskLevel {
 }
 
 function factor(score: number): RiskFactor {
-  const clamped = Math.round(Math.min(100, Math.max(0, score)) * 10) / 10
+  const clamped = round1(Math.min(100, Math.max(0, score)))
   return { score: clamped, level: toLevel(clamped) }
 }
 
-export function buildGridRiskFallback(params: { hour: number; region: RegionCode }): GridRiskResponse {
-  const bounds = REGION_BOUNDS[params.region]
-  const seed = params.region === 'pangyo' ? 20261306 : 20261307
-  const rand = mulberry32(seed)
-  const weight = hourWeight(params.hour)
+/** 시간·참여율 무관한 지역별 기저 격자 — 좌표와 가중 전 점수 */
+interface BasePoint {
+  lat: number
+  lng: number
+  base: number
+}
+
+// hour 스크럽·참여율 변경마다 폴백이 재호출되므로, 무거운 좌표·핫스팟 계산은
+// 지역당 1회만 수행하고 캐시한다 (시간대·참여율은 스칼라 곱으로만 반영됨)
+const baseGridCache = new Map<RegionCode, BasePoint[]>()
+
+function baseGrid(region: RegionCode): BasePoint[] {
+  const cached = baseGridCache.get(region)
+  if (cached) return cached
+
+  const bounds = REGION_BOUNDS[region]
+  const rand = mulberry32(region === 'pangyo' ? 20261306 : 20261307)
 
   // 핫스팟 3곳 — 시드 고정이라 지역별로 항상 같은 위치
   const hotspots = Array.from({ length: 3 }, () => ({
@@ -67,33 +92,52 @@ export function buildGridRiskFallback(params: { hour: number; region: RegionCode
   const latSpan = bounds.latMax - bounds.latMin
   const lngSpan = bounds.lngMax - bounds.lngMin
 
-  const grids: GridRiskPoint[] = []
-  let total = 0
+  const points: BasePoint[] = []
   for (let i = 0; i < GRID_COUNT; i += 1) {
     const lat = bounds.latMin + rand() * latSpan
     const lng = bounds.lngMin + rand() * lngSpan
-    // 핫스팟과의 거리 기반 기저 위험도 + 노이즈, 시간대 가중치 적용
+    // 핫스팟과의 거리 기반 기저 위험도 + 노이즈 (시간대 가중치는 호출 시점에 곱한다)
     let base = 42
     for (const h of hotspots) {
       const d = Math.hypot((lat - h.lat) / latSpan, (lng - h.lng) / lngSpan)
       base += h.strength * 55 * Math.exp(-(d ** 2) / 0.06)
     }
-    const score = Math.min(100, Math.max(0, (base + rand() * 16 - 8) * weight))
-    const rounded = Math.round(score * 10) / 10
-    total += rounded
-    grids.push({ lat, lng, riskScore: rounded })
+    points.push({ lat, lng, base: base + rand() * 16 - 8 })
+  }
+  baseGridCache.set(region, points)
+  return points
+}
+
+export function buildGridRiskFallback(params: GridRiskParams): GridRiskResponse {
+  const weight = hourWeight(params.hour)
+  // 참여율 비례 균일 감쇠 (기본 45% ≈ 완화율 15%, 하한 0.55) — 백엔드 초기 모델과 같은 성격
+  const rate = params.participationRate ?? DEFAULT_PARTICIPATION_RATE
+  const relief = Math.max(0.55, 1 - rate / 300)
+
+  const grids: GridRiskPoint[] = []
+  let total = 0
+  for (const point of baseGrid(params.region)) {
+    const score = round1(Math.min(100, Math.max(0, point.base * weight)))
+    total += score
+    grids.push({
+      lat: point.lat,
+      lng: point.lng,
+      riskScore: score,
+      projectedRiskScore: round1(score * relief),
+    })
   }
 
-  const globalRisk = Math.round((total / GRID_COUNT) * 10) / 10
+  const globalRisk = round1(total / GRID_COUNT)
 
-  // 시간대별 M-커브 — 현재 vs 시나리오 적용(완화율 15% 가정)
+  // 시간대별 M-커브 — 현재 vs 시나리오 적용(참여율 비례 감쇠)
   const meanBase = globalRisk / weight
-  const hourlyCurrent = Array.from({ length: 24 }, (_, h) => Math.round(meanBase * hourWeight(h) * 10) / 10)
-  const hourlyProjected = hourlyCurrent.map((v) => Math.round(v * 0.85 * 10) / 10)
+  const hourlyCurrent = Array.from({ length: 24 }, (_, h) => round1(meanBase * hourWeight(h)))
+  const hourlyProjected = hourlyCurrent.map((v) => round1(v * relief))
 
   return {
     hour: params.hour,
     globalRisk,
+    globalRiskProjected: round1(globalRisk * relief),
     grids,
     breakdown: {
       parking: factor(globalRisk + 18),

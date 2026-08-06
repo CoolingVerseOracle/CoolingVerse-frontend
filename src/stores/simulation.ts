@@ -1,14 +1,17 @@
 import { reactive, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchSimulationResult, runSimulation } from '@/api/simulation'
+import { DEFAULT_PARTICIPATION_RATE } from '@/constants/simulation'
 import type { SimulationResult, SimulationSettings } from '@/types/simulation'
 
 /** 대시보드 — 시나리오 설정 폼 + 시뮬레이션 결과(KPI/차트) */
 export const useSimulationStore = defineStore('simulation', () => {
   const settings = reactive<SimulationSettings>({
     openToPublic: true,
-    residentsOnly: false,
-    participationRate: 45,
+    // 시뮬레이션 대상이 미개방(입주민 전용) 단지라 false면 기대효과가 전부 0이 된다.
+    // v2.1에서 개방 대상 체크박스가 제거되어 1차 범위에서는 true 고정 (PR #28 백엔드 리뷰)
+    residentsOnly: true,
+    participationRate: DEFAULT_PARTICIPATION_RATE,
     openFrom: '09:00',
     openTo: '18:00',
     commercialRadiusM: 500,

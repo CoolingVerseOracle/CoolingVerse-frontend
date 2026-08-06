@@ -1,12 +1,22 @@
 /** 분석 대상 지역 코드 */
 export type RegionCode = 'pangyo' | 'ingye'
 
+/** grid-risk 조회 파라미터 — 실 API와 폴백 생성기가 공유 */
+export interface GridRiskParams {
+  hour: number
+  region: RegionCode
+  /** 마지막 실행에 반영된 참여율(%) — 실행 전이면 null, 쿼리에서 생략 */
+  participationRate?: number | null
+}
+
 /** 위험지수 보유 격자 1개 — 위험지수 없는 격자는 응답에 포함되지 않는다 */
 export interface GridRiskPoint {
   lat: number
   lng: number
   /** 격자 위험 지수 (0–100) */
   riskScore: number
+  /** 참여율 적용 후 위험 지수 (0–100) — 초기 버전은 전 격자 동일 감쇠 */
+  projectedRiskScore: number
 }
 
 export type RiskLevel = 'high' | 'medium' | 'low'
@@ -30,12 +40,14 @@ export interface HourlyRiskCurve {
   projected: number[]
 }
 
-/** GET /simulate/grid-risk 응답 — 백엔드 협의 중인 제안 계약 */
+/** GET /simulate/grid-risk 응답 — 백엔드 GridRiskDtos.java와 1:1 (backend PR #17·#20) */
 export interface GridRiskResponse {
   /** 조회 시간대 (0–23) */
   hour: number
   /** 평균 격자 위험 지수 (0–100) */
   globalRisk: number
+  /** 참여율 적용 후 평균 격자 위험 지수 (0–100) */
+  globalRiskProjected: number
   /** 위험지수 보유 격자만 (판교 기준 1,306개) */
   grids: GridRiskPoint[]
   breakdown: RiskBreakdown

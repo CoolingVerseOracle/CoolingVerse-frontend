@@ -189,6 +189,7 @@ onBeforeUnmount(() => {
           <MapRiskSummary
             class="map-panel__risk"
             :global-risk="dashboard.globalRisk"
+            :projected-risk="dashboard.globalRiskProjected"
             :state-label="dashboard.riskStateLabel"
             :is-fallback="dashboard.gridIsFallback"
           />
