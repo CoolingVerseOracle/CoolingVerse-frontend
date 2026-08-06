@@ -1,12 +1,16 @@
 /**
- * 분석 영역 밖을 파란 사선으로 채우는 오버레이 — OverlayView 서브클래스.
+ * 분석 영역 경계 오버레이 — 경계 실선과 영역 밖 파란 사선을 한 캔버스에 그린다.
  * naverHeatLayer와 같은 pane(overlayLayer) 캔버스 방식이라 드래그 중에도
  * 지리 좌표에 고정된다. 뷰포트 전체를 사선 패턴으로 칠한 뒤 분석 영역
- * 사각형만 뚫어내는(clearRect) 방식으로 "영역 외"를 표현한다. (이슈 #26 C안)
+ * 사각형만 뚫어내고(clearRect) 그 둘레에 실선을 두르는 방식. (이슈 #26 C안)
+ *
+ * 실선을 SDK Rectangle로 따로 그리지 않는 이유: 셰이프와 캔버스가 서로 다른
+ * 렌더 경로를 타면 줌 애니메이션 중 둘의 갱신 시점이 어긋나 실선이 사선·지도와
+ * 따로 노는 것처럼 보인다. 같은 캔버스에 그리면 구조적으로 어긋날 수 없다.
  */
 import type { GeoBounds } from '@/types/geo'
 
-export interface OutsideHatchLayer {
+export interface BoundaryLayer {
   setMap(map: naver.maps.Map | null): void
   getMap(): naver.maps.Map | null
   setBounds(bounds: GeoBounds): void
@@ -41,9 +45,16 @@ function buildHatchPattern(color: string): HTMLCanvasElement {
   return tile
 }
 
+export interface BoundaryLayerStyle {
+  /** 영역 외 사선 색 */
+  hatchColor: string
+  /** 경계 실선 색 */
+  lineColor: string
+}
+
 /** naver SDK 로드 이후에만 호출 가능 (클래스가 naver.maps.OverlayView를 상속) */
-export function createOutsideHatchLayer(color = 'rgba(30, 144, 255, 0.35)'): OutsideHatchLayer {
-  class OutsideHatchOverlay extends naver.maps.OverlayView {
+export function createBoundaryLayer(style: BoundaryLayerStyle): BoundaryLayer {
+  class BoundaryOverlay extends naver.maps.OverlayView {
     private canvas = document.createElement('canvas')
     private pattern: CanvasPattern | null = null
     private bounds: GeoBounds | null = null
@@ -107,7 +118,7 @@ export function createOutsideHatchLayer(color = 'rgba(30, 144, 255, 0.35)'): Out
       const ctx = this.canvas.getContext('2d')
       if (!ctx) return
 
-      this.pattern ??= ctx.createPattern(buildHatchPattern(color), 'repeat')
+      this.pattern ??= ctx.createPattern(buildHatchPattern(style.hatchColor), 'repeat')
       if (!this.pattern) return
 
       // 패턴 원점을 pane 좌표에 맞춰 팬/줌 후 재그리기에도 줄무늬가 이어지게 한다
@@ -121,14 +132,21 @@ export function createOutsideHatchLayer(color = 'rgba(30, 144, 255, 0.35)'): Out
       ctx.fillRect(0, 0, width + s, height + s)
       ctx.restore()
 
-      // 분석 영역 사각형만 뚫어낸다 — 그 밖이 "영역 외"
+      // 분석 영역 사각형만 뚫어내고(그 밖이 "영역 외") 둘레에 경계 실선을 두른다
       const nw = projection.fromCoordToOffset(
         new naver.maps.LatLng(this.bounds.latMax, this.bounds.lngMin),
       )
       const se = projection.fromCoordToOffset(
         new naver.maps.LatLng(this.bounds.latMin, this.bounds.lngMax),
       )
-      ctx.clearRect(nw.x - left, nw.y - top, se.x - nw.x, se.y - nw.y)
+      const rectX = nw.x - left
+      const rectY = nw.y - top
+      const rectW = se.x - nw.x
+      const rectH = se.y - nw.y
+      ctx.clearRect(rectX, rectY, rectW, rectH)
+      ctx.strokeStyle = style.lineColor
+      ctx.lineWidth = 2
+      ctx.strokeRect(rectX, rectY, rectW, rectH)
     }
 
     onRemove(): void {
@@ -137,5 +155,5 @@ export function createOutsideHatchLayer(color = 'rgba(30, 144, 255, 0.35)'): Out
     }
   }
 
-  return new OutsideHatchOverlay()
+  return new BoundaryOverlay()
 }
