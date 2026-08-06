@@ -81,6 +81,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     gridRisk,
     gridLoading,
     gridIsFallback,
+    gridAppliedRate,
     globalRisk,
     globalRiskProjected,
     breakdown,

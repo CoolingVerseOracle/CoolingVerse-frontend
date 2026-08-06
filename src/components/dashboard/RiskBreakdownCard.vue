@@ -48,6 +48,12 @@ const rows = computed<RiskRow[]>(() => {
         <span>/ 100</span>
       </p>
       <p
+        v-if="dashboard.globalRiskProjected != null"
+        class="risk-breakdown__summary-projected"
+      >
+        시나리오 적용 후 <strong>{{ dashboard.globalRiskProjected.toFixed(1) }}</strong>
+      </p>
+      <p
         v-if="dashboard.riskStateLabel"
         class="risk-breakdown__summary-state"
       >
@@ -152,6 +158,18 @@ const rows = computed<RiskRow[]>(() => {
       font-size: $font-size-sm;
       font-weight: 600;
       color: $color-text;
+    }
+  }
+
+  &__summary-projected {
+    margin-top: 2px;
+    font-size: $font-size-xs;
+    color: $color-text-secondary;
+
+    strong {
+      color: $color-success;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
     }
   }
 

@@ -70,9 +70,14 @@ function scheduleHeatDraw(): void {
   })
 }
 
+/** 지도 레이어가 그릴 격자 지수 — 시뮬레이션 실행 후에는 참여율 적용 지수를 쓴다 */
+function displayScore(g: { riskScore: number; projectedRiskScore: number }): number {
+  return dashboard.gridAppliedRate != null ? g.projectedRiskScore : g.riskScore
+}
+
 function updateHeatData(): void {
   const grids = dashboard.gridRisk?.grids ?? []
-  heatLayer?.setData(grids.map((g) => ({ lat: g.lat, lng: g.lng, weight: g.riskScore / 100 })))
+  heatLayer?.setData(grids.map((g) => ({ lat: g.lat, lng: g.lng, weight: displayScore(g) / 100 })))
 }
 
 interface ClusterBucket {
@@ -97,7 +102,7 @@ function renderClusters(): void {
     const bucket = buckets.get(key) ?? { latSum: 0, lngSum: 0, riskSum: 0, count: 0 }
     bucket.latSum += g.lat
     bucket.lngSum += g.lng
-    bucket.riskSum += g.riskScore
+    bucket.riskSum += displayScore(g)
     bucket.count += 1
     buckets.set(key, bucket)
   }
