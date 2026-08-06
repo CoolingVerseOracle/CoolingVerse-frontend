@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import AppToast from '@/components/common/AppToast.vue'
 import BlankLayout from '@/layouts/BlankLayout.vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 
@@ -12,4 +13,5 @@ const layout = computed(() => (route.meta.public ? BlankLayout : DefaultLayout))
   <component :is="layout">
     <RouterView />
   </component>
+  <AppToast />
 </template>

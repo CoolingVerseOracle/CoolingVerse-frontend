@@ -4,6 +4,7 @@ import AppButton from '@/components/common/AppButton.vue'
 import ChipSelect from './ChipSelect.vue'
 import ScenarioSaveModal from './ScenarioSaveModal.vue'
 import { ANALYSIS_MONTHS, REGIONS } from '@/constants/regions'
+import { useToast } from '@/composables/useToast'
 import { useSimulationStore } from '@/stores/simulation'
 import type { RegionCode } from '@/types/geo'
 import type { SelectOption } from '@/types/common'
@@ -36,10 +37,11 @@ const appliedRateLabel = computed(() =>
 )
 
 const saveModalOpen = ref(false)
+const toast = useToast()
 
 function onSaved(name: string): void {
   saveModalOpen.value = false
-  window.alert(`'${name}' 시나리오가 저장되었습니다. 시나리오 관리에서 확인할 수 있습니다.`)
+  toast.show(`'${name}' 시나리오가 저장되었습니다. 시나리오 관리에서 확인할 수 있습니다.`)
 }
 </script>
 
