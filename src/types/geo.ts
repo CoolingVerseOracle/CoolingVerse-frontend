@@ -50,6 +50,11 @@ export interface HourlyRiskCurve {
 
 /** GET /simulate/grid-risk 응답 — 백엔드 GridRiskDtos.java와 1:1 (backend PR #17·#20) */
 export interface GridRiskResponse {
+  /**
+   * 분석 영역 바운딩박스 — 백엔드가 내려주면 그대로 쓰고(이슈 #26 코멘트에서 제안된
+   * 선택 필드), 없으면 프론트가 grids에서 이상치를 걸러 산출한다 (utils/geoBounds)
+   */
+  bounds?: GeoBounds
   /** 조회 시간대 (0–23) */
   hour: number
   /** 평균 격자 위험 지수 (0–100) */

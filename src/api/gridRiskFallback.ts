@@ -150,6 +150,8 @@ export function buildGridRiskFallback(params: GridRiskParams): GridRiskResponse 
 
   return {
     hour: params.hour,
+    // 폴백은 생성 범위를 정확히 알고 있으므로 bounds를 직접 내려준다 (이상치 산출 불필요)
+    bounds: { ...REGION_BOUNDS[params.region] },
     globalRisk,
     globalRiskProjected: round1(Math.max(0, globalRisk - delta)),
     grids,

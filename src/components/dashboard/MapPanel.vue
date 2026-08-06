@@ -40,19 +40,29 @@ function toLatLngBounds(bounds: GeoBounds): naver.maps.LatLngBounds {
   )
 }
 
+// 마지막으로 지도에 반영한 데이터 바운딩박스 — 시간대 스크럽마다 같은 박스로 재설정하는 것을 막는다
+let appliedBounds: GeoBounds | null = null
+
 /**
- * 지역의 분석 영역 경계를 지도에 반영 — 이동 제한(느슨한 1.75배 박스)과
- * 경계 실선·영역 외 사선 표시를 갱신한다 (이슈 #26 C안)
+ * 현재 지역 grid-risk 응답의 바운딩박스를 지도에 반영 — 이동 제한(느슨한 1.75배 박스)과
+ * 경계 실선·영역 외 사선 표시를 갱신한다 (이슈 #26 C안). 상수가 아니라 응답 기반이라
+ * 지역(district)이 추가되어도 해당 지역 데이터 범위를 그대로 따라간다
  */
-function applyRegionBounds(): void {
-  if (!map) return
-  const region = currentRegion()
-  map.setOptions({
-    maxBounds: toLatLngBounds(expandBounds(region.bounds, MAX_BOUNDS_EXPAND)),
-    // 제한 박스보다 훨씬 넓게 축소되지 않도록 지역 기본 줌에서 두 단계까지만 허용
-    minZoom: region.zoom - 2,
-  })
-  boundaryLayer?.setBounds(region.bounds)
+function applyDataBounds(): void {
+  const bounds = dashboard.gridBounds
+  if (!map || !bounds) return
+  if (
+    appliedBounds &&
+    appliedBounds.latMin === bounds.latMin &&
+    appliedBounds.latMax === bounds.latMax &&
+    appliedBounds.lngMin === bounds.lngMin &&
+    appliedBounds.lngMax === bounds.lngMax
+  ) {
+    return
+  }
+  appliedBounds = bounds
+  boundaryLayer?.setBounds(bounds)
+  map.setOptions({ maxBounds: toLatLngBounds(expandBounds(bounds, MAX_BOUNDS_EXPAND)) })
 }
 
 async function initMap(): Promise<void> {
@@ -67,6 +77,8 @@ async function initMap(): Promise<void> {
     map = new maps.Map(mapEl.value, {
       center: new maps.LatLng(region.center.lat, region.center.lng),
       zoom: region.zoom,
+      // 제한 박스보다 훨씬 넓게 축소되지 않도록 지역 기본 줌에서 두 단계까지만 허용
+      minZoom: region.zoom - 2,
       mapDataControl: false,
       scaleControl: false,
       logoControlOptions: { position: maps.Position.BOTTOM_LEFT },
@@ -80,9 +92,9 @@ async function initMap(): Promise<void> {
       hatchColor: 'rgba(30, 144, 255, 0.35)',
       lineColor: chartColors.primary,
     })
-    boundaryLayer.setBounds(region.bounds)
     boundaryLayer.setMap(map)
-    applyRegionBounds()
+    // 격자 응답이 지도보다 먼저 도착해 있을 수 있으므로 즉시 1회 반영
+    applyDataBounds()
     // 팬 후 드러난 마진 영역은 bounds_changed로, 줌은 애니메이션이 끝난 idle에서 다시 그린다
     // (줌 시작 시점(zoom_changed)에 그리면 pane 변환이 끝나기 전 좌표로 재배치되어 어긋난다)
     mapListeners = [
@@ -168,6 +180,7 @@ watch(
   () => {
     updateHeatData()
     renderClusters()
+    applyDataBounds()
   },
 )
 watch(
@@ -182,8 +195,10 @@ watch(
   () => {
     if (!map) return
     const region = currentRegion()
-    // 새 지역의 제한·경계를 먼저 적용한다 — morph 목적지(지역 센터)는 항상 새 제한 박스 안이다
-    applyRegionBounds()
+    // 새 지역 응답이 오기 전까지 이전 지역의 이동 제한을 풀어 morph가 경계에 막히지 않게 한다.
+    // 새 제한·경계는 grid-risk 응답 도착 시 applyDataBounds가 다시 건다
+    appliedBounds = null
+    map.setOptions({ maxBounds: null, minZoom: region.zoom - 2 })
     map.morph(new naver.maps.LatLng(region.center.lat, region.center.lng), region.zoom)
   },
 )

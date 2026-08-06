@@ -2,7 +2,8 @@ import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchGridRisk } from '@/api/geo'
 import { useSimulationStore } from '@/stores/simulation'
-import type { GridRiskResponse } from '@/types/geo'
+import { boundsFromGrids } from '@/utils/geoBounds'
+import type { GeoBounds, GridRiskResponse } from '@/types/geo'
 
 /**
  * 대시보드 조회 전용 상태 — 시간대·레이어 토글·격자 위험지수.
@@ -21,6 +22,17 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const gridIsFallback = ref(false)
   /** 현재 gridRisk 응답을 만든 참여율 스냅샷 — 실행 전 조회면 null */
   const gridAppliedRate = ref<number | null>(null)
+
+  /**
+   * 현재 지역의 분석 영역 바운딩박스 — 경계 실선·영역 외 사선·이동 제한의 기준.
+   * 응답의 bounds(백엔드 제공)를 우선 쓰고, 없으면 격자 좌표에서 이상치를 걸러 산출한다.
+   * 지역이 추가되어도 해당 지역 응답을 따라가므로 프론트 상수 갱신이 필요 없다 (이슈 #26)
+   */
+  const gridBounds = computed<GeoBounds | null>(() => {
+    const res = gridRisk.value
+    if (!res) return null
+    return res.bounds ?? boundsFromGrids(res.grids)
+  })
 
   const globalRisk = computed(() => gridRisk.value?.globalRisk ?? null)
   /** 참여율 적용 후 평균 위험지수 — 참여율 없이 조회한 응답(실행 전)에는 표시하지 않는다 */
@@ -79,6 +91,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     heatmapOn,
     clusterOn,
     gridRisk,
+    gridBounds,
     gridLoading,
     gridIsFallback,
     gridAppliedRate,
