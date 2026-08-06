@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import AppCheckbox from '@/components/common/AppCheckbox.vue'
 import AppPagination from '@/components/common/AppPagination.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
+import ScenarioMetaEditModal from './ScenarioMetaEditModal.vue'
 import ScenarioTableRow from './ScenarioTableRow.vue'
 import { fetchScenario } from '@/api/scenarios'
 import { HttpError } from '@/api/http'
@@ -36,6 +37,20 @@ async function onOpen(id: string): Promise<void> {
   } finally {
     opening.value = false
   }
+}
+
+/** "수정" — 이름·메모 경량 편집 모달. 저장 후 현재 페이지·필터를 유지한 채 재조회 */
+const editingId = ref<string | null>(null)
+
+function onEditSaved(): void {
+  editingId.value = null
+  void store.load()
+}
+
+function onEditMissing(): void {
+  editingId.value = null
+  window.alert('이미 삭제된 시나리오입니다. 목록을 갱신합니다.')
+  void store.load()
 }
 
 async function onRemove(id: string): Promise<void> {
@@ -96,6 +111,7 @@ const pageSizeProxy = computed({
             :selected="store.selectedIds.has(scenario.id)"
             @toggle="store.toggleSelect"
             @open="onOpen"
+            @edit="editingId = $event"
             @remove="onRemove"
           />
           <tr v-if="!store.loading && store.scenarios.length === 0">
@@ -130,6 +146,14 @@ const pageSizeProxy = computed({
         />
       </div>
     </footer>
+
+    <ScenarioMetaEditModal
+      v-if="editingId"
+      :scenario-id="editingId"
+      @close="editingId = null"
+      @saved="onEditSaved"
+      @missing="onEditMissing"
+    />
   </section>
 </template>
 

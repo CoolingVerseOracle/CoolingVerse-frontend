@@ -4,6 +4,7 @@ import type {
   Scenario,
   ScenarioDetail,
   ScenarioFilter,
+  UpdateScenarioMetadataRequest,
 } from '@/types/scenario'
 import { http } from './http'
 
@@ -35,6 +36,17 @@ export async function createScenario(payload: CreateScenarioRequest): Promise<Sc
 /** 시나리오 상세("열기") — 설정과 결과 스냅샷을 함께 반환한다 */
 export async function fetchScenario(id: string): Promise<ScenarioDetail> {
   return http<ScenarioDetail>(`/scenarios/${id}`)
+}
+
+/** 이름·메모 부분 수정 — 설정·결과 스냅샷은 불변, 없으면 404(HttpError) */
+export async function updateScenarioMetadata(
+  id: string,
+  payload: UpdateScenarioMetadataRequest,
+): Promise<ScenarioDetail> {
+  return http<ScenarioDetail>(`/scenarios/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 }
 
 /** 시나리오 삭제 — 성공 204 / 없으면 404(HttpError) */
