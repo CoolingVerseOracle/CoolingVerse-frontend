@@ -1,6 +1,14 @@
 /** 분석 대상 지역 코드 */
 export type RegionCode = 'pangyo' | 'ingye'
 
+/** 위경도 바운딩박스 — 분석 영역 경계 표시·지도 이동 제한에 공용 */
+export interface GeoBounds {
+  latMin: number
+  latMax: number
+  lngMin: number
+  lngMax: number
+}
+
 /** grid-risk 조회 파라미터 — 실 API와 폴백 생성기가 공유 */
 export interface GridRiskParams {
   hour: number

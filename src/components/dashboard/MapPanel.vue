@@ -6,8 +6,10 @@ import MapLegend from './MapLegend.vue'
 import TimeScrubberCard from './TimeScrubberCard.vue'
 import { isMapAvailable, loadNaverMaps } from '@/composables/useNaverMaps'
 import { createHeatLayer, type HeatLayer } from './naverHeatLayer'
+import { createOutsideHatchLayer, type OutsideHatchLayer } from './naverOutsideHatchLayer'
 import { chartColors } from '@/composables/useEchartsTheme'
-import { regionByCode } from '@/constants/regions'
+import { expandBounds, MAX_BOUNDS_EXPAND, regionByCode } from '@/constants/regions'
+import type { GeoBounds } from '@/types/geo'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSimulationStore } from '@/stores/simulation'
 
@@ -21,6 +23,8 @@ const mapFailed = ref(false)
 // 지도 객체들은 반응형일 필요가 없다 — ref에 넣으면 프록시 래핑 비용만 생기고 SDK 내부와 충돌한다
 let map: naver.maps.Map | null = null
 let heatLayer: HeatLayer | null = null
+let hatchLayer: OutsideHatchLayer | null = null
+let boundaryRect: naver.maps.Rectangle | null = null
 let clusterMarkers: naver.maps.Marker[] = []
 let mapListeners: naver.maps.MapEventListener[] = []
 let heatRaf = 0
@@ -28,6 +32,29 @@ let destroyed = false
 
 function currentRegion() {
   return regionByCode(simulation.settings.region ?? 'pangyo')
+}
+
+function toLatLngBounds(bounds: GeoBounds): naver.maps.LatLngBounds {
+  return new naver.maps.LatLngBounds(
+    new naver.maps.LatLng(bounds.latMin, bounds.lngMin),
+    new naver.maps.LatLng(bounds.latMax, bounds.lngMax),
+  )
+}
+
+/**
+ * 지역의 분석 영역 경계를 지도에 반영 — 이동 제한(느슨한 1.75배 박스)과
+ * 경계 실선·영역 외 사선 표시를 갱신한다 (이슈 #26 C안)
+ */
+function applyRegionBounds(): void {
+  if (!map) return
+  const region = currentRegion()
+  map.setOptions({
+    maxBounds: toLatLngBounds(expandBounds(region.bounds, MAX_BOUNDS_EXPAND)),
+    // 제한 박스보다 훨씬 넓게 축소되지 않도록 지역 기본 줌에서 두 단계까지만 허용
+    minZoom: region.zoom - 2,
+  })
+  boundaryRect?.setBounds(toLatLngBounds(region.bounds))
+  hatchLayer?.setBounds(region.bounds)
 }
 
 async function initMap(): Promise<void> {
@@ -50,10 +77,25 @@ async function initMap(): Promise<void> {
     heatLayer = createHeatLayer(18)
     heatLayer.setMap(dashboard.heatmapOn ? map : null)
     updateHeatData()
+    // 분석 영역 경계 실선 — 히트맵·클러스터가 놓이는 데이터 범위를 명시한다
+    boundaryRect = new maps.Rectangle({
+      map,
+      bounds: toLatLngBounds(region.bounds),
+      strokeColor: chartColors.primary,
+      strokeWeight: 2,
+      strokeOpacity: 0.9,
+      fillOpacity: 0,
+      clickable: false,
+    })
+    // 분석 영역 밖은 파란 사선으로 구분
+    hatchLayer = createOutsideHatchLayer()
+    hatchLayer.setBounds(region.bounds)
+    hatchLayer.setMap(map)
+    applyRegionBounds()
     // 팬/줌 후 드러난 마진 영역을 다시 그린다 (드래그 중 위치 고정은 pane이 담당)
     mapListeners = [
-      naver.maps.Event.addListener(map, 'bounds_changed', scheduleHeatDraw),
-      naver.maps.Event.addListener(map, 'zoom_changed', scheduleHeatDraw),
+      naver.maps.Event.addListener(map, 'bounds_changed', scheduleOverlayDraw),
+      naver.maps.Event.addListener(map, 'zoom_changed', scheduleOverlayDraw),
     ]
     renderClusters()
   } catch (error) {
@@ -62,11 +104,13 @@ async function initMap(): Promise<void> {
   }
 }
 
-function scheduleHeatDraw(): void {
+function scheduleOverlayDraw(): void {
   if (heatRaf) return
   heatRaf = requestAnimationFrame(() => {
     heatRaf = 0
-    if (!destroyed) heatLayer?.redraw()
+    if (destroyed) return
+    heatLayer?.redraw()
+    hatchLayer?.redraw()
   })
 }
 
@@ -146,6 +190,8 @@ watch(
   () => {
     if (!map) return
     const region = currentRegion()
+    // 새 지역의 제한·경계를 먼저 적용한다 — morph 목적지(지역 센터)는 항상 새 제한 박스 안이다
+    applyRegionBounds()
     map.morph(new naver.maps.LatLng(region.center.lat, region.center.lng), region.zoom)
   },
 )
@@ -161,6 +207,10 @@ onBeforeUnmount(() => {
   mapListeners = []
   heatLayer?.setMap(null)
   heatLayer = null
+  hatchLayer?.setMap(null)
+  hatchLayer = null
+  boundaryRect?.setMap(null)
+  boundaryRect = null
   clusterMarkers.forEach((m) => m.setMap(null))
   map?.destroy()
   map = null
