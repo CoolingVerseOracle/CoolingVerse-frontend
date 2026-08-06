@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 import type { ScenarioFilter } from '@/types/scenario'
 import { http } from '@/api/http'
-import { fetchScenarios } from '@/api/scenarios'
+import { fetchScenarios, updateScenarioMetadata } from '@/api/scenarios'
 
 // http 계층은 스텁 — fetchScenarios가 조립한 URL만 검증한다
 vi.mock('@/api/http', () => ({ http: vi.fn() }))
@@ -66,5 +66,26 @@ describe('fetchScenarios 쿼리스트링 조립', () => {
 
     await fetchScenarios(makeFilter({ participation: 'all' }))
     expect(queryOf().has('participation')).toBe(false)
+  })
+})
+
+describe('updateScenarioMetadata 요청 조립', () => {
+  beforeEach(() => {
+    httpMock.mockReset()
+    httpMock.mockResolvedValue({})
+  })
+
+  it('PATCH /scenarios/{id}로 이름·메모를 본문에 싣는다', async () => {
+    await updateScenarioMetadata('abc', { name: '표준 개방안', memo: '메모' })
+    const [path, init] = httpMock.mock.calls.at(-1) as [string, RequestInit]
+    expect(path).toBe('/scenarios/abc')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(init.body as string)).toEqual({ name: '표준 개방안', memo: '메모' })
+  })
+
+  it('보내지 않은 필드는 본문에서 생략된다 (부분 수정 계약)', async () => {
+    await updateScenarioMetadata('abc', { name: '이름만' })
+    const [, init] = httpMock.mock.calls.at(-1) as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({ name: '이름만' })
   })
 })
