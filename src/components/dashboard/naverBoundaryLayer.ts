@@ -1,24 +1,17 @@
 /**
- * 분석 영역 경계 오버레이 — 경계 실선과 영역 밖 파란 사선을 한 캔버스에 그린다.
- * naverHeatLayer와 같은 pane(overlayLayer) 캔버스 방식이라 드래그 중에도
- * 지리 좌표에 고정된다. 뷰포트 전체를 사선 패턴으로 칠한 뒤 분석 영역
- * 사각형만 뚫어내고(clearRect) 그 둘레에 실선을 두르는 방식. (이슈 #26 C안)
+ * 분석 영역 경계 오버레이 — pane 고정 캔버스(naverCanvasOverlay) 하나에
+ * 영역 밖 파란 사선과 경계 실선을 함께 그린다. (이슈 #26 C안)
  *
  * 실선을 SDK Rectangle로 따로 그리지 않는 이유: 셰이프와 캔버스가 서로 다른
  * 렌더 경로를 타면 줌 애니메이션 중 둘의 갱신 시점이 어긋나 실선이 사선·지도와
  * 따로 노는 것처럼 보인다. 같은 캔버스에 그리면 구조적으로 어긋날 수 없다.
  */
+import { createCanvasOverlay, type CanvasOverlay } from './naverCanvasOverlay'
 import type { GeoBounds } from '@/types/geo'
 
-export interface BoundaryLayer {
-  setMap(map: naver.maps.Map | null): void
-  getMap(): naver.maps.Map | null
+export interface BoundaryLayer extends CanvasOverlay {
   setBounds(bounds: GeoBounds): void
-  redraw(): void
 }
-
-/** 뷰포트 대비 여유 렌더 마진 비율 — 드래그로 드러나는 가장자리 공백을 줄인다 */
-const MARGIN_RATIO = 0.5
 
 /** 사선 패턴 타일 크기(px) — 값이 클수록 줄 간격이 넓어진다 */
 const PATTERN_SIZE = 12
@@ -52,108 +45,63 @@ export interface BoundaryLayerStyle {
   lineColor: string
 }
 
-/** naver SDK 로드 이후에만 호출 가능 (클래스가 naver.maps.OverlayView를 상속) */
+/** naver SDK 로드 이후에만 호출 가능 */
 export function createBoundaryLayer(style: BoundaryLayerStyle): BoundaryLayer {
-  class BoundaryOverlay extends naver.maps.OverlayView {
-    private canvas = document.createElement('canvas')
-    private pattern: CanvasPattern | null = null
-    private bounds: GeoBounds | null = null
-    private retries = 0
-    private retryTimer: ReturnType<typeof setTimeout> | null = null
+  let bounds: GeoBounds | null = null
+  let pattern: CanvasPattern | null = null
 
-    constructor() {
-      super()
-      this.canvas.style.position = 'absolute'
-      this.canvas.style.pointerEvents = 'none'
+  const overlay = createCanvasOverlay(({ canvas, width, height, left, top, toCanvasPoint }) => {
+    if (!bounds) return
+    // width/height 대입은 값이 같아도 비트맵을 재할당·초기화하므로 크기가 변한 경우에만
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    pattern ??= ctx.createPattern(buildHatchPattern(style.hatchColor), 'repeat')
+    if (!pattern) return
+
+    // 분석 영역 사각형 (캔버스 픽셀 좌표)
+    const nw = toCanvasPoint(bounds.latMax, bounds.lngMin)
+    const se = toCanvasPoint(bounds.latMin, bounds.lngMax)
+    // 캔버스와의 교집합 — 사선은 이 사각형 밖 네 밴드(상·하·좌·우)에만 채운다
+    const holeX0 = Math.min(Math.max(nw.x, 0), width)
+    const holeX1 = Math.min(Math.max(se.x, 0), width)
+    const holeY0 = Math.min(Math.max(nw.y, 0), height)
+    const holeY1 = Math.min(Math.max(se.y, 0), height)
+
+    ctx.clearRect(0, 0, width, height)
+    // 패턴 원점을 pane 좌표에 맞춰 팬/줌 후 재그리기에도 줄무늬가 이어지게 한다
+    const s = PATTERN_SIZE
+    pattern.setTransform(
+      new DOMMatrix().translateSelf(-(((left % s) + s) % s), -(((top % s) + s) % s)),
+    )
+    ctx.fillStyle = pattern
+    const bands: [number, number, number, number][] = [
+      [0, 0, width, holeY0],
+      [0, holeY1, width, height - holeY1],
+      [0, holeY0, holeX0, holeY1 - holeY0],
+      [holeX1, holeY0, width - holeX1, holeY1 - holeY0],
+    ]
+    for (const [x, y, w, h] of bands) {
+      if (w > 0 && h > 0) ctx.fillRect(x, y, w, h)
     }
 
-    setBounds(bounds: GeoBounds): void {
-      this.bounds = bounds
-      this.redraw()
-    }
+    ctx.strokeStyle = style.lineColor
+    ctx.lineWidth = 2
+    ctx.strokeRect(nw.x, nw.y, se.x - nw.x, se.y - nw.y)
+  })
 
-    redraw(): void {
-      if (this.getMap()) this.draw()
-    }
-
-    onAdd(): void {
-      this.getPanes().overlayLayer.appendChild(this.canvas)
-    }
-
-    draw(): void {
-      const map = this.getMap() as naver.maps.Map | null
-      if (!map || !this.bounds) return
-      const projection = this.getProjection() as naver.maps.MapSystemProjection | undefined
-      const size = map.getSize()
-      // 지도 생성 직후에는 projection/레이아웃이 준비 전일 수 있어 짧게 재시도
-      if (!projection || size.width === 0 || size.height === 0) {
-        if (this.retries < 20) {
-          this.retries += 1
-          if (this.retryTimer) clearTimeout(this.retryTimer)
-          this.retryTimer = setTimeout(() => {
-            this.retryTimer = null
-            this.redraw()
-          }, 150)
-        }
-        return
-      }
-      this.retries = 0
-
-      const marginX = Math.round(size.width * MARGIN_RATIO)
-      const marginY = Math.round(size.height * MARGIN_RATIO)
-      const viewBounds = map.getBounds() as naver.maps.LatLngBounds
-      const ne = viewBounds.getNE()
-      const sw = viewBounds.getSW()
-      // 캔버스를 뷰포트 좌상단(+마진) 위치에 pane 좌표로 고정
-      const topLeft = projection.fromCoordToOffset(new naver.maps.LatLng(ne.lat(), sw.lng()))
-      const left = topLeft.x - marginX
-      const top = topLeft.y - marginY
-      this.canvas.style.left = `${left}px`
-      this.canvas.style.top = `${top}px`
-
-      const width = size.width + marginX * 2
-      const height = size.height + marginY * 2
-      this.canvas.width = width
-      this.canvas.height = height
-      const ctx = this.canvas.getContext('2d')
-      if (!ctx) return
-
-      this.pattern ??= ctx.createPattern(buildHatchPattern(style.hatchColor), 'repeat')
-      if (!this.pattern) return
-
-      // 패턴 원점을 pane 좌표에 맞춰 팬/줌 후 재그리기에도 줄무늬가 이어지게 한다
-      const s = PATTERN_SIZE
-      const offX = ((left % s) + s) % s
-      const offY = ((top % s) + s) % s
-      ctx.clearRect(0, 0, width, height)
-      ctx.save()
-      ctx.translate(-offX, -offY)
-      ctx.fillStyle = this.pattern
-      ctx.fillRect(0, 0, width + s, height + s)
-      ctx.restore()
-
-      // 분석 영역 사각형만 뚫어내고(그 밖이 "영역 외") 둘레에 경계 실선을 두른다
-      const nw = projection.fromCoordToOffset(
-        new naver.maps.LatLng(this.bounds.latMax, this.bounds.lngMin),
-      )
-      const se = projection.fromCoordToOffset(
-        new naver.maps.LatLng(this.bounds.latMin, this.bounds.lngMax),
-      )
-      const rectX = nw.x - left
-      const rectY = nw.y - top
-      const rectW = se.x - nw.x
-      const rectH = se.y - nw.y
-      ctx.clearRect(rectX, rectY, rectW, rectH)
-      ctx.strokeStyle = style.lineColor
-      ctx.lineWidth = 2
-      ctx.strokeRect(rectX, rectY, rectW, rectH)
-    }
-
-    onRemove(): void {
-      if (this.retryTimer) clearTimeout(this.retryTimer)
-      this.canvas.remove()
-    }
+  // overlay는 클래스 인스턴스라 스프레드하면 프로토타입 메서드가 사라진다 — 명시적 위임
+  return {
+    setMap: (map) => overlay.setMap(map),
+    getMap: () => overlay.getMap(),
+    redraw: () => overlay.redraw(),
+    setBounds(next: GeoBounds): void {
+      bounds = next
+      overlay.redraw()
+    },
   }
-
-  return new BoundaryOverlay()
 }

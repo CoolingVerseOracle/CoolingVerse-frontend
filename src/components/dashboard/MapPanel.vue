@@ -8,7 +8,8 @@ import { isMapAvailable, loadNaverMaps } from '@/composables/useNaverMaps'
 import { createHeatLayer, type HeatLayer } from './naverHeatLayer'
 import { createBoundaryLayer, type BoundaryLayer } from './naverBoundaryLayer'
 import { chartColors } from '@/composables/useEchartsTheme'
-import { expandBounds, MAX_BOUNDS_EXPAND, regionByCode } from '@/constants/regions'
+import { regionByCode } from '@/constants/regions'
+import { boundsEqual, expandBounds } from '@/utils/geoBounds'
 import type { GeoBounds } from '@/types/geo'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSimulationStore } from '@/stores/simulation'
@@ -26,8 +27,11 @@ let heatLayer: HeatLayer | null = null
 let boundaryLayer: BoundaryLayer | null = null
 let clusterMarkers: naver.maps.Marker[] = []
 let mapListeners: naver.maps.MapEventListener[] = []
-let heatRaf = 0
+let overlayRaf = 0
 let destroyed = false
+
+// 제한 박스보다 훨씬 넓게 축소되지 않도록 지역 기본 줌에서 허용하는 축소 단계
+const MIN_ZOOM_STEPS_OUT = 2
 
 function currentRegion() {
   return regionByCode(simulation.settings.region ?? 'pangyo')
@@ -49,20 +53,20 @@ let appliedBounds: GeoBounds | null = null
  * 지역(district)이 추가되어도 해당 지역 데이터 범위를 그대로 따라간다
  */
 function applyDataBounds(): void {
+  if (!map) return
   const bounds = dashboard.gridBounds
-  if (!map || !bounds) return
-  if (
-    appliedBounds &&
-    appliedBounds.latMin === bounds.latMin &&
-    appliedBounds.latMax === bounds.latMax &&
-    appliedBounds.lngMin === bounds.lngMin &&
-    appliedBounds.lngMax === bounds.lngMax
-  ) {
+  if (!bounds) {
+    // 지역 전환 직후 등 현재 지역 응답이 아직 없음 — 제한을 풀고 새 응답을 기다린다
+    if (appliedBounds) {
+      appliedBounds = null
+      map.setOptions({ maxBounds: null })
+    }
     return
   }
+  if (appliedBounds && boundsEqual(appliedBounds, bounds)) return
   appliedBounds = bounds
   boundaryLayer?.setBounds(bounds)
-  map.setOptions({ maxBounds: toLatLngBounds(expandBounds(bounds, MAX_BOUNDS_EXPAND)) })
+  map.setOptions({ maxBounds: toLatLngBounds(expandBounds(bounds)) })
 }
 
 async function initMap(): Promise<void> {
@@ -77,8 +81,7 @@ async function initMap(): Promise<void> {
     map = new maps.Map(mapEl.value, {
       center: new maps.LatLng(region.center.lat, region.center.lng),
       zoom: region.zoom,
-      // 제한 박스보다 훨씬 넓게 축소되지 않도록 지역 기본 줌에서 두 단계까지만 허용
-      minZoom: region.zoom - 2,
+      minZoom: region.zoom - MIN_ZOOM_STEPS_OUT,
       mapDataControl: false,
       scaleControl: false,
       logoControlOptions: { position: maps.Position.BOTTOM_LEFT },
@@ -109,9 +112,9 @@ async function initMap(): Promise<void> {
 }
 
 function scheduleOverlayDraw(): void {
-  if (heatRaf) return
-  heatRaf = requestAnimationFrame(() => {
-    heatRaf = 0
+  if (overlayRaf) return
+  overlayRaf = requestAnimationFrame(() => {
+    overlayRaf = 0
     if (destroyed) return
     heatLayer?.redraw()
     boundaryLayer?.redraw()
@@ -195,10 +198,10 @@ watch(
   () => {
     if (!map) return
     const region = currentRegion()
-    // 새 지역 응답이 오기 전까지 이전 지역의 이동 제한을 풀어 morph가 경계에 막히지 않게 한다.
-    // 새 제한·경계는 grid-risk 응답 도착 시 applyDataBounds가 다시 건다
-    appliedBounds = null
-    map.setOptions({ maxBounds: null, minZoom: region.zoom - 2 })
+    // 지역이 바뀌면 스토어 gridBounds가 즉시 null이 되므로(응답 지역 검사) 이전 제한이 풀려
+    // morph가 경계에 막히지 않는다. 새 제한·경계는 새 지역 응답 도착 시 다시 걸린다
+    applyDataBounds()
+    map.setOptions({ minZoom: region.zoom - MIN_ZOOM_STEPS_OUT })
     map.morph(new naver.maps.LatLng(region.center.lat, region.center.lng), region.zoom)
   },
 )
@@ -209,7 +212,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   destroyed = true
-  if (heatRaf) cancelAnimationFrame(heatRaf)
+  if (overlayRaf) cancelAnimationFrame(overlayRaf)
   mapListeners.forEach((l) => naver.maps.Event.removeListener(l))
   mapListeners = []
   heatLayer?.setMap(null)

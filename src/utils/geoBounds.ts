@@ -1,5 +1,28 @@
 import type { GeoBounds } from '@/types/geo'
 
+/** 이동 제한 박스 확장 배율 — 인접 맥락을 볼 수 있게 느슨하게 제한 (이슈 #26 C안, 1.5~2배의 중간값) */
+export const MAX_BOUNDS_EXPAND = 1.75
+
+/** 중심을 고정한 채 가로·세로 폭을 배율만큼 키운 바운딩박스 */
+export function expandBounds(bounds: GeoBounds, factor = MAX_BOUNDS_EXPAND): GeoBounds {
+  const latCenter = (bounds.latMin + bounds.latMax) / 2
+  const lngCenter = (bounds.lngMin + bounds.lngMax) / 2
+  const latHalf = ((bounds.latMax - bounds.latMin) / 2) * factor
+  const lngHalf = ((bounds.lngMax - bounds.lngMin) / 2) * factor
+  return {
+    latMin: latCenter - latHalf,
+    latMax: latCenter + latHalf,
+    lngMin: lngCenter - lngHalf,
+    lngMax: lngCenter + lngHalf,
+  }
+}
+
+export function boundsEqual(a: GeoBounds, b: GeoBounds): boolean {
+  return (
+    a.latMin === b.latMin && a.latMax === b.latMax && a.lngMin === b.lngMin && a.lngMax === b.lngMax
+  )
+}
+
 /** 정렬된 배열의 분위수 — 선형 보간 */
 function quantile(sorted: number[], q: number): number {
   const pos = (sorted.length - 1) * q
@@ -14,23 +37,9 @@ function inlierRange(sorted: number[]): [number, number] {
   const q1 = quantile(sorted, 0.25)
   const q3 = quantile(sorted, 0.75)
   const fence = (q3 - q1) * 1.5
-  const lo = q1 - fence
-  const hi = q3 + fence
-  let min = sorted[0]
-  let max = sorted[sorted.length - 1]
-  for (const v of sorted) {
-    if (v >= lo) {
-      min = v
-      break
-    }
-  }
-  for (let i = sorted.length - 1; i >= 0; i -= 1) {
-    if (sorted[i] <= hi) {
-      max = sorted[i]
-      break
-    }
-  }
-  return [min, max]
+  const inliers = sorted.filter((v) => v >= q1 - fence && v <= q3 + fence)
+  const source = inliers.length > 0 ? inliers : sorted
+  return [source[0], source[source.length - 1]]
 }
 
 /**

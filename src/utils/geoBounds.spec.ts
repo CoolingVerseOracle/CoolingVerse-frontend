@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { boundsFromGrids } from './geoBounds'
+import { boundsEqual, boundsFromGrids, expandBounds } from './geoBounds'
+import type { GeoBounds } from '@/types/geo'
+
+const base: GeoBounds = { latMin: 37.3, latMax: 37.4, lngMin: 127.0, lngMax: 127.2 }
 
 /** 본체 격자 — 판교 실데이터와 비슷한 범위에 고르게 분포 */
 function makeGrids(count: number): { lat: number; lng: number }[] {
@@ -8,6 +11,24 @@ function makeGrids(count: number): { lat: number; lng: number }[] {
     lng: 127.04 + (0.14 * i) / (count - 1),
   }))
 }
+
+describe('expandBounds', () => {
+  it('중심을 고정한 채 가로·세로 폭을 배율만큼 키운다', () => {
+    const expanded = expandBounds(base, 2)
+    expect(expanded.latMax - expanded.latMin).toBeCloseTo(0.2, 10)
+    expect(expanded.lngMax - expanded.lngMin).toBeCloseTo(0.4, 10)
+    // 중심 불변
+    expect((expanded.latMin + expanded.latMax) / 2).toBeCloseTo(37.35, 10)
+    expect((expanded.lngMin + expanded.lngMax) / 2).toBeCloseTo(127.1, 10)
+  })
+})
+
+describe('boundsEqual', () => {
+  it('네 값이 모두 같아야 true', () => {
+    expect(boundsEqual(base, { ...base })).toBe(true)
+    expect(boundsEqual(base, { ...base, lngMax: 127.3 })).toBe(false)
+  })
+})
 
 describe('boundsFromGrids', () => {
   it('빈 배열이면 null을 반환한다', () => {
