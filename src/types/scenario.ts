@@ -4,14 +4,10 @@ import type { SimulationSettings } from './simulation'
 export interface Scenario {
   id: string
   name: string
-  /** 대상 지역 (판교테크노벨리, 수원 인계동 …) */
+  /** 대상 지역 표시명 (판교테크노밸리, 수원 인계동 …) */
   region: string
-  /**
-   * 조건 요약 문자열 — 백엔드가 "45%, 09~18시" 형태로 조립해 내려준다.
-   * 운영시간은 v2.1에서 제거된 고정 기본값이라 화면은 참여율 부분만 표시한다
-   * (백엔드가 participationRate 필드를 내려주도록 계약 정리 전까지의 과도기 처리).
-   */
-  conditions: string
+  /** 참여율(%) — 테이블 참여율 컬럼 표기 (backend PR #23) */
+  participationRate: number
   /** 공급 증감(면) */
   supplyDelta: number
   /** 위험지수 변화 */

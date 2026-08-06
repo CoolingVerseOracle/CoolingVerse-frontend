@@ -56,8 +56,8 @@ describe('fetchScenarios 쿼리스트링 조립', () => {
     await fetchScenarios(makeFilter({ region: 'all' }))
     expect(queryOf().has('region')).toBe(false)
 
-    await fetchScenarios(makeFilter({ region: '성남시 분당구' }))
-    expect(queryOf().get('region')).toBe('성남시 분당구')
+    await fetchScenarios(makeFilter({ region: 'pangyo' }))
+    expect(queryOf().get('region')).toBe('pangyo')
   })
 
   it("participation은 'all'이 아닐 때만 싣는다", async () => {

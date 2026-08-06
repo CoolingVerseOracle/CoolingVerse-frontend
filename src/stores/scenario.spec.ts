@@ -15,8 +15,8 @@ function makeScenario(id: string): Scenario {
   return {
     id,
     name: `시나리오 ${id}`,
-    region: '성남시 분당구',
-    conditions: '30%, 09~18시',
+    region: '판교테크노밸리',
+    participationRate: 30,
     supplyDelta: 0,
     riskBefore: 0,
     riskAfter: 0,
@@ -59,7 +59,7 @@ describe('useScenarioStore 조회 트리거', () => {
     fetchMock.mockClear()
 
     // 필터 변경 → page 리셋과 재조회가 겹쳐도 load는 단 1회여야 한다
-    store.filter.region = '성남시 분당구'
+    store.filter.region = 'pangyo'
     await flush()
 
     expect(store.filter.page).toBe(1)

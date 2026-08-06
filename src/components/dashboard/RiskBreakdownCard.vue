@@ -45,6 +45,13 @@ const rows = computed<RiskRow[]>(() => {
       </p>
       <p class="risk-breakdown__summary-value">
         <strong>{{ dashboard.globalRisk != null ? dashboard.globalRisk.toFixed(1) : '–' }}</strong>
+        <template v-if="dashboard.globalRiskProjected != null">
+          <span
+            class="risk-breakdown__summary-arrow"
+            aria-hidden="true"
+          >→</span>
+          <strong class="risk-breakdown__summary-after">{{ dashboard.globalRiskProjected.toFixed(1) }}</strong>
+        </template>
         <span>/ 100</span>
       </p>
       <p
@@ -62,11 +69,14 @@ const rows = computed<RiskRow[]>(() => {
     >
       <div class="risk-breakdown__row-head">
         <span class="risk-breakdown__row-label">{{ row.label }}</span>
-        <span
-          class="risk-breakdown__row-level"
-          :class="`risk-breakdown__row-level--${row.factor.level}`"
-        >
-          {{ LEVEL_LABELS[row.factor.level] }}
+        <span class="risk-breakdown__row-meta">
+          <span class="risk-breakdown__row-score">{{ Math.round(row.factor.score) }}점/100점</span>
+          <span
+            class="risk-breakdown__row-level"
+            :class="`risk-breakdown__row-level--${row.factor.level}`"
+          >
+            {{ LEVEL_LABELS[row.factor.level] }}
+          </span>
         </span>
       </div>
       <div
@@ -153,6 +163,16 @@ const rows = computed<RiskRow[]>(() => {
       font-weight: 600;
       color: $color-text;
     }
+
+    .risk-breakdown__summary-arrow {
+      font-size: $font-size-md;
+      color: $color-text-muted;
+    }
+
+    // 적용 후 값 — 현재값(danger)과 대비되는 개선 색
+    .risk-breakdown__summary-after {
+      color: $color-success;
+    }
   }
 
   &__summary-state {
@@ -177,6 +197,18 @@ const rows = computed<RiskRow[]>(() => {
   &__row-label {
     font-size: $font-size-xs;
     color: $color-text-secondary;
+  }
+
+  &__row-meta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: $space-2;
+  }
+
+  &__row-score {
+    font-size: $font-size-xs;
+    color: $color-text;
+    font-variant-numeric: tabular-nums;
   }
 
   &__row-level {
