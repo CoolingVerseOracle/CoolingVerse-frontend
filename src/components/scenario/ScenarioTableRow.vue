@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: [id: string]
   open: [id: string]
+  edit: [id: string]
   remove: [id: string]
 }>()
 
@@ -51,6 +52,13 @@ const selectedProxy = computed({
         @click="emit('open', scenario.id)"
       >
         열기
+      </button>
+      <button
+        class="scenario-row__action"
+        type="button"
+        @click="emit('edit', scenario.id)"
+      >
+        수정
       </button>
       <button
         class="scenario-row__action scenario-row__action--danger"

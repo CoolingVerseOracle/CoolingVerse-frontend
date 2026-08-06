@@ -33,6 +33,12 @@ export interface CreateScenarioRequest {
   settings: SimulationSettings
 }
 
+/** 이름·메모 부분 수정 요청 — 보내지 않은 필드는 기존 값 유지 (backend #14) */
+export interface UpdateScenarioMetadataRequest {
+  name?: string
+  memo?: string
+}
+
 /** 상세 조회 응답 — 조건(설정)과 결과 스냅샷을 모두 담는다. "열기" 버튼용 */
 export interface ScenarioDetail {
   id: string
