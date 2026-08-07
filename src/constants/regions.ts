@@ -7,7 +7,11 @@ export interface RegionOption {
   zoom: number
 }
 
-/** 분석 대상 지역 — 지도 센터링과 시나리오 카드 지역 선택에 공용 */
+/**
+ * 분석 대상 지역 — 지도 센터링과 시나리오 카드 지역 선택에 공용.
+ * 분석 영역 바운딩박스는 상수가 아니라 지역별 grid-risk 응답에서 산출한다
+ * (dashboard 스토어 gridBounds) — 지역이 추가되면 여기엔 센터·줌만 등록하면 된다.
+ */
 export const REGIONS: RegionOption[] = [
   { code: 'pangyo', label: '판교', center: { lat: 37.4004, lng: 127.1122 }, zoom: 14 },
   { code: 'ingye', label: '수원 인계동', center: { lat: 37.2635, lng: 127.0323 }, zoom: 14 },

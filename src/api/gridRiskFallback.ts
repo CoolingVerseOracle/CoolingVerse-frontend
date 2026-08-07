@@ -6,6 +6,7 @@
  */
 import { DEFAULT_PARTICIPATION_RATE } from '@/constants/simulation'
 import type {
+  GeoBounds,
   GridRiskParams,
   GridRiskPoint,
   GridRiskResponse,
@@ -17,14 +18,7 @@ import type {
 /** 위험지수 보유 격자 수 — 백엔드 협의값(판교 시드 기준) */
 const GRID_COUNT = 1306
 
-interface Bounds {
-  latMin: number
-  latMax: number
-  lngMin: number
-  lngMax: number
-}
-
-const REGION_BOUNDS: Record<RegionCode, Bounds> = {
+const REGION_BOUNDS: Record<RegionCode, GeoBounds> = {
   pangyo: { latMin: 37.394, latMax: 37.412, lngMin: 127.098, lngMax: 127.126 },
   ingye: { latMin: 37.256, latMax: 37.272, lngMin: 127.024, lngMax: 127.044 },
 }
@@ -150,6 +144,8 @@ export function buildGridRiskFallback(params: GridRiskParams): GridRiskResponse 
 
   return {
     hour: params.hour,
+    // 폴백은 생성 범위를 정확히 알고 있으므로 bounds를 직접 내려준다 (이상치 산출 불필요)
+    bounds: { ...REGION_BOUNDS[params.region] },
     globalRisk,
     globalRiskProjected: round1(Math.max(0, globalRisk - delta)),
     grids,

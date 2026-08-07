@@ -6,8 +6,11 @@ import MapLegend from './MapLegend.vue'
 import TimeScrubberCard from './TimeScrubberCard.vue'
 import { isMapAvailable, loadNaverMaps } from '@/composables/useNaverMaps'
 import { createHeatLayer, type HeatLayer } from './naverHeatLayer'
+import { createBoundaryLayer, type BoundaryLayer } from './naverBoundaryLayer'
 import { chartColors } from '@/composables/useEchartsTheme'
 import { regionByCode } from '@/constants/regions'
+import { boundsEqual, expandBounds } from '@/utils/geoBounds'
+import type { GeoBounds } from '@/types/geo'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSimulationStore } from '@/stores/simulation'
 
@@ -21,13 +24,49 @@ const mapFailed = ref(false)
 // 지도 객체들은 반응형일 필요가 없다 — ref에 넣으면 프록시 래핑 비용만 생기고 SDK 내부와 충돌한다
 let map: naver.maps.Map | null = null
 let heatLayer: HeatLayer | null = null
+let boundaryLayer: BoundaryLayer | null = null
 let clusterMarkers: naver.maps.Marker[] = []
 let mapListeners: naver.maps.MapEventListener[] = []
-let heatRaf = 0
+let overlayRaf = 0
 let destroyed = false
+
+// 제한 박스보다 훨씬 넓게 축소되지 않도록 지역 기본 줌에서 허용하는 축소 단계
+const MIN_ZOOM_STEPS_OUT = 2
 
 function currentRegion() {
   return regionByCode(simulation.settings.region ?? 'pangyo')
+}
+
+function toLatLngBounds(bounds: GeoBounds): naver.maps.LatLngBounds {
+  return new naver.maps.LatLngBounds(
+    new naver.maps.LatLng(bounds.latMin, bounds.lngMin),
+    new naver.maps.LatLng(bounds.latMax, bounds.lngMax),
+  )
+}
+
+// 마지막으로 지도에 반영한 데이터 바운딩박스 — 시간대 스크럽마다 같은 박스로 재설정하는 것을 막는다
+let appliedBounds: GeoBounds | null = null
+
+/**
+ * 현재 지역 grid-risk 응답의 바운딩박스를 지도에 반영 — 이동 제한(느슨한 1.75배 박스)과
+ * 경계 실선·영역 외 사선 표시를 갱신한다 (이슈 #26 C안). 상수가 아니라 응답 기반이라
+ * 지역(district)이 추가되어도 해당 지역 데이터 범위를 그대로 따라간다
+ */
+function applyDataBounds(): void {
+  if (!map) return
+  const bounds = dashboard.gridBounds
+  if (!bounds) {
+    // 지역 전환 직후 등 현재 지역 응답이 아직 없음 — 제한을 풀고 새 응답을 기다린다
+    if (appliedBounds) {
+      appliedBounds = null
+      map.setOptions({ maxBounds: null })
+    }
+    return
+  }
+  if (appliedBounds && boundsEqual(appliedBounds, bounds)) return
+  appliedBounds = bounds
+  boundaryLayer?.setBounds(bounds)
+  map.setOptions({ maxBounds: toLatLngBounds(expandBounds(bounds)) })
 }
 
 async function initMap(): Promise<void> {
@@ -42,6 +81,7 @@ async function initMap(): Promise<void> {
     map = new maps.Map(mapEl.value, {
       center: new maps.LatLng(region.center.lat, region.center.lng),
       zoom: region.zoom,
+      minZoom: region.zoom - MIN_ZOOM_STEPS_OUT,
       mapDataControl: false,
       scaleControl: false,
       logoControlOptions: { position: maps.Position.BOTTOM_LEFT },
@@ -50,10 +90,19 @@ async function initMap(): Promise<void> {
     heatLayer = createHeatLayer(18)
     heatLayer.setMap(dashboard.heatmapOn ? map : null)
     updateHeatData()
-    // 팬/줌 후 드러난 마진 영역을 다시 그린다 (드래그 중 위치 고정은 pane이 담당)
+    // 분석 영역 경계 실선 + 영역 외 파란 사선 — 데이터 범위를 명시한다
+    boundaryLayer = createBoundaryLayer({
+      hatchColor: 'rgba(30, 144, 255, 0.35)',
+      lineColor: chartColors.primary,
+    })
+    boundaryLayer.setMap(map)
+    // 격자 응답이 지도보다 먼저 도착해 있을 수 있으므로 즉시 1회 반영
+    applyDataBounds()
+    // 팬 후 드러난 마진 영역은 bounds_changed로, 줌은 애니메이션이 끝난 idle에서 다시 그린다
+    // (줌 시작 시점(zoom_changed)에 그리면 pane 변환이 끝나기 전 좌표로 재배치되어 어긋난다)
     mapListeners = [
-      naver.maps.Event.addListener(map, 'bounds_changed', scheduleHeatDraw),
-      naver.maps.Event.addListener(map, 'zoom_changed', scheduleHeatDraw),
+      naver.maps.Event.addListener(map, 'bounds_changed', scheduleOverlayDraw),
+      naver.maps.Event.addListener(map, 'idle', scheduleOverlayDraw),
     ]
     renderClusters()
   } catch (error) {
@@ -62,11 +111,13 @@ async function initMap(): Promise<void> {
   }
 }
 
-function scheduleHeatDraw(): void {
-  if (heatRaf) return
-  heatRaf = requestAnimationFrame(() => {
-    heatRaf = 0
-    if (!destroyed) heatLayer?.redraw()
+function scheduleOverlayDraw(): void {
+  if (overlayRaf) return
+  overlayRaf = requestAnimationFrame(() => {
+    overlayRaf = 0
+    if (destroyed) return
+    heatLayer?.redraw()
+    boundaryLayer?.redraw()
   })
 }
 
@@ -132,6 +183,7 @@ watch(
   () => {
     updateHeatData()
     renderClusters()
+    applyDataBounds()
   },
 )
 watch(
@@ -146,6 +198,10 @@ watch(
   () => {
     if (!map) return
     const region = currentRegion()
+    // 지역이 바뀌면 스토어 gridBounds가 즉시 null이 되므로(응답 지역 검사) 이전 제한이 풀려
+    // morph가 경계에 막히지 않는다. 새 제한·경계는 새 지역 응답 도착 시 다시 걸린다
+    applyDataBounds()
+    map.setOptions({ minZoom: region.zoom - MIN_ZOOM_STEPS_OUT })
     map.morph(new naver.maps.LatLng(region.center.lat, region.center.lng), region.zoom)
   },
 )
@@ -156,11 +212,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   destroyed = true
-  if (heatRaf) cancelAnimationFrame(heatRaf)
+  if (overlayRaf) cancelAnimationFrame(overlayRaf)
   mapListeners.forEach((l) => naver.maps.Event.removeListener(l))
   mapListeners = []
   heatLayer?.setMap(null)
   heatLayer = null
+  boundaryLayer?.setMap(null)
+  boundaryLayer = null
   clusterMarkers.forEach((m) => m.setMap(null))
   map?.destroy()
   map = null

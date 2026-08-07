@@ -2,7 +2,8 @@ import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchGridRisk } from '@/api/geo'
 import { useSimulationStore } from '@/stores/simulation'
-import type { GridRiskResponse } from '@/types/geo'
+import { boundsFromGrids } from '@/utils/geoBounds'
+import type { GeoBounds, GridRiskResponse, RegionCode } from '@/types/geo'
 
 /**
  * 대시보드 조회 전용 상태 — 시간대·레이어 토글·격자 위험지수.
@@ -21,6 +22,21 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const gridIsFallback = ref(false)
   /** 현재 gridRisk 응답을 만든 참여율 스냅샷 — 실행 전 조회면 null */
   const gridAppliedRate = ref<number | null>(null)
+  /** 현재 gridRisk 응답을 만든 지역 스냅샷 — 지역 전환 직후 stale 응답 판별용 */
+  const gridRegion = ref<RegionCode | null>(null)
+
+  /**
+   * 현재 지역의 분석 영역 바운딩박스 — 경계 실선·영역 외 사선·이동 제한의 기준.
+   * 응답의 bounds(백엔드 제공)를 우선 쓰고, 없으면 격자 좌표에서 이상치를 걸러 산출한다.
+   * 지역이 추가되어도 해당 지역 응답을 따라가므로 프론트 상수 갱신이 필요 없다 (이슈 #26).
+   * 지역 전환 직후 이전 지역 응답이 남아 있는 동안에는 null — 새 응답 도착까지 경계를 내리지 않는다
+   */
+  const gridBounds = computed<GeoBounds | null>(() => {
+    const res = gridRisk.value
+    const simulation = useSimulationStore()
+    if (!res || gridRegion.value !== (simulation.settings.region ?? 'pangyo')) return null
+    return res.bounds ?? boundsFromGrids(res.grids)
+  })
 
   const globalRisk = computed(() => gridRisk.value?.globalRisk ?? null)
   /** 참여율 적용 후 평균 위험지수 — 참여율 없이 조회한 응답(실행 전)에는 표시하지 않는다 */
@@ -50,17 +66,19 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const seq = ++requestSeq
     // 마지막 실행에 반영된 참여율 — projected 계산 입력 (실행 전이면 생략)
     const participationRate = simulation.appliedRate
+    const region = simulation.settings.region ?? 'pangyo'
     gridLoading.value = true
     try {
       const { data, isFallback } = await fetchGridRisk({
         hour: selectedHour.value,
-        region: simulation.settings.region ?? 'pangyo',
+        region,
         participationRate,
       })
       if (seq !== requestSeq) return
       gridRisk.value = data
       gridIsFallback.value = isFallback
       gridAppliedRate.value = participationRate
+      gridRegion.value = region
     } finally {
       if (seq === requestSeq) gridLoading.value = false
     }
@@ -79,6 +97,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     heatmapOn,
     clusterOn,
     gridRisk,
+    gridBounds,
     gridLoading,
     gridIsFallback,
     gridAppliedRate,
