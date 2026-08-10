@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AppButton from '@/components/common/AppButton.vue'
 import AppCheckbox from '@/components/common/AppCheckbox.vue'
 import AppPagination from '@/components/common/AppPagination.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
@@ -10,6 +11,7 @@ import { fetchScenario } from '@/api/scenarios'
 import { HttpError } from '@/api/http'
 import { useScenarioStore } from '@/stores/scenario'
 import { useSimulationStore } from '@/stores/simulation'
+import { useToast } from '@/composables/useToast'
 import type { SelectOption } from '@/types/common'
 
 const store = useScenarioStore()
@@ -66,6 +68,33 @@ async function onRemove(id: string): Promise<void> {
   }
 }
 
+/**
+ * 선택 일괄 삭제 (이슈 #17) — 배치 API가 없어 스토어가 단건 DELETE를 반복 호출한다.
+ * 부분 실패 시 성공분만 반영하고 실패 건수를 토스트로 안내 — 실패분은 목록에 남는다
+ */
+const toast = useToast()
+const bulkRemoving = ref(false)
+
+async function onRemoveSelected(): Promise<void> {
+  const count = store.selectedIds.size
+  if (!count || bulkRemoving.value) return
+  if (!window.confirm(`선택한 시나리오 ${count}건을 삭제할까요?`)) return
+  bulkRemoving.value = true
+  try {
+    const { deleted, missing, failed } = await store.removeSelected()
+    // 404(이미 삭제됨)도 목록에서 사라지므로 삭제 성공으로 묶어 안내한다
+    const gone = deleted + missing
+    if (failed === 0) toast.show(`시나리오 ${gone}건을 삭제했습니다.`)
+    else if (gone === 0) toast.show('삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.', 'error')
+    else toast.show(`${gone}건을 삭제했지만 ${failed}건은 실패했습니다. 실패한 항목은 목록에 남아 있습니다.`, 'error')
+  } catch {
+    // 삭제 자체는 allSettled로 수습되므로 여기 오는 건 목록 재조회 실패뿐
+    toast.show('목록 갱신에 실패했습니다. 잠시 후 새로고침해 주세요.', 'error')
+  } finally {
+    bulkRemoving.value = false
+  }
+}
+
 const pageSizeOptions: SelectOption[] = [
   { label: '10', value: '10' },
   { label: '20', value: '20' },
@@ -87,6 +116,22 @@ const pageSizeProxy = computed({
 
 <template>
   <section class="scenario-table">
+    <div
+      v-if="store.selectedIds.size > 0"
+      class="scenario-table__bulk"
+    >
+      <span class="scenario-table__bulk-count">
+        <strong>{{ store.selectedIds.size }}</strong>건 선택됨
+      </span>
+      <AppButton
+        variant="secondary"
+        class="scenario-table__bulk-delete"
+        :disabled="bulkRemoving"
+        @click="onRemoveSelected"
+      >
+        {{ bulkRemoving ? '삭제 중…' : '선택 삭제' }}
+      </AppButton>
+    </div>
     <div class="scenario-table__scroll">
       <table>
         <thead>
@@ -161,6 +206,30 @@ const pageSizeProxy = computed({
 .scenario-table {
   @include card;
   overflow: hidden;
+
+  // 선택이 있을 때만 나타나는 일괄 작업 바
+  &__bulk {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: $space-2 $space-4;
+    border-bottom: 1px solid $color-border;
+    background: $color-bg;
+  }
+
+  &__bulk-count {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+
+    strong {
+      color: $color-text;
+    }
+  }
+
+  &__bulk-delete {
+    color: $color-danger;
+  }
 
   &__scroll {
     overflow-x: auto;

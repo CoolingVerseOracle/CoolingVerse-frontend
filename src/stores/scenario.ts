@@ -67,6 +67,41 @@ export const useScenarioStore = defineStore('scenario', () => {
     return outcome
   }
 
+  /** 일괄 삭제 결과 — 부분 실패 시 사용처가 실패 건수를 안내할 수 있게 구분해 반환 */
+  interface RemoveSelectedResult {
+    /** 실제 삭제된 건수 */
+    deleted: number
+    /** 이미 삭제되어 있던(404) 건수 — 목록에서는 사라지므로 삭제와 동일하게 수습된다 */
+    missing: number
+    /** 네트워크/서버 오류로 남아 있는 건수 */
+    failed: number
+  }
+
+  /**
+   * 선택된 시나리오 일괄 삭제 — 백엔드에 배치 엔드포인트가 없어 단건 DELETE를
+   * 병렬 반복 호출한다 (이슈 #17). 부분 실패해도 성공분은 그대로 두고 목록만
+   * 재조회한다 — 실패분은 목록에 남아 다시 시도할 수 있다
+   */
+  async function removeSelected(): Promise<RemoveSelectedResult> {
+    const ids = [...selectedIds.value]
+    const result: RemoveSelectedResult = { deleted: 0, missing: 0, failed: 0 }
+    if (!ids.length) return result
+
+    const settled = await Promise.allSettled(ids.map((id) => deleteScenario(id)))
+    for (const s of settled) {
+      if (s.status === 'fulfilled') result.deleted += 1
+      else if (s.reason instanceof HttpError && s.reason.status === 404) result.missing += 1
+      else result.failed += 1
+    }
+
+    // 삭제로 현재 페이지가 범위를 벗어났으면 마지막 페이지로 보정 (page watcher가 재조회)
+    const remaining = Math.max(0, total.value - result.deleted - result.missing)
+    const maxPage = Math.max(1, Math.ceil(remaining / filter.pageSize))
+    if (filter.page > maxPage) filter.page = maxPage
+    else await load()
+    return result
+  }
+
   function toggleSelect(id: string): void {
     const next = new Set(selectedIds.value)
     if (next.has(id)) next.delete(id)
@@ -81,5 +116,16 @@ export const useScenarioStore = defineStore('scenario', () => {
         : new Set(scenarios.value.map((s) => s.id))
   }
 
-  return { filter, scenarios, total, loading, selectedIds, load, remove, toggleSelect, toggleSelectAll }
+  return {
+    filter,
+    scenarios,
+    total,
+    loading,
+    selectedIds,
+    load,
+    remove,
+    removeSelected,
+    toggleSelect,
+    toggleSelectAll,
+  }
 })
