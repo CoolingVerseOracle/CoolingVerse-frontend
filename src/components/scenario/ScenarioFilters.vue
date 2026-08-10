@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
 import { REGIONS } from '@/constants/regions'
@@ -6,6 +8,21 @@ import { useScenarioStore } from '@/stores/scenario'
 import type { SelectOption } from '@/types/common'
 
 const store = useScenarioStore()
+
+// 검색은 명시적 트리거 방식 (이슈 #17) — 타이핑은 로컬 상태에만 쌓이고,
+// 검색 버튼 클릭 또는 Enter(form submit)에서만 필터에 반영되어 요청이 나간다
+const keywordInput = ref(store.filter.keyword)
+
+function onSearch(): void {
+  const next = keywordInput.value.trim()
+  if (store.filter.keyword !== next) {
+    store.filter.keyword = next // 필터 watcher가 1페이지 리셋 + 재조회
+  } else if (store.filter.page !== 1) {
+    store.filter.page = 1 // page watcher가 재조회
+  } else {
+    void store.load() // 같은 조건 재검색 — 명시적으로 새로고침
+  }
+}
 
 // 지역 필터는 코드 표준(pangyo/ingye, backend PR #23) — 라벨은 대시보드 지역 셀렉터와 공유
 const regionOptions: SelectOption[] = [
@@ -38,16 +55,28 @@ const sortOptions: SelectOption[] = [
         :options="participationOptions"
         aria-label="참여율 필터"
       />
-      <AppInput
-        v-model="store.filter.keyword"
-        type="search"
-        class="scenario-filters__search"
-        placeholder="시나리오명 검색"
+      <form
+        class="scenario-filters__search-form"
+        role="search"
+        @submit.prevent="onSearch"
       >
-        <template #icon>
-          <span aria-hidden="true">🔍</span>
-        </template>
-      </AppInput>
+        <AppInput
+          v-model="keywordInput"
+          type="search"
+          class="scenario-filters__search"
+          placeholder="시나리오명 검색"
+        >
+          <template #icon>
+            <span aria-hidden="true">🔍</span>
+          </template>
+        </AppInput>
+        <AppButton
+          type="submit"
+          variant="secondary"
+        >
+          검색
+        </AppButton>
+      </form>
     </div>
     <AppSelect
       v-model="store.filter.sort"
@@ -71,6 +100,12 @@ const sortOptions: SelectOption[] = [
     align-items: center;
     gap: $space-2;
     flex-wrap: wrap;
+  }
+
+  &__search-form {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
   }
 
   &__search {
