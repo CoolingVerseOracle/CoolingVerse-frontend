@@ -4,12 +4,14 @@ import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Paginated } from '@/types/common'
 import type { Scenario } from '@/types/scenario'
-import { fetchScenarios } from '@/api/scenarios'
+import { deleteScenario, fetchScenarios } from '@/api/scenarios'
+import { HttpError } from '@/api/http'
 import { useScenarioStore } from '@/stores/scenario'
 
-vi.mock('@/api/scenarios', () => ({ fetchScenarios: vi.fn() }))
+vi.mock('@/api/scenarios', () => ({ fetchScenarios: vi.fn(), deleteScenario: vi.fn() }))
 
 const fetchMock = fetchScenarios as Mock
+const deleteMock = deleteScenario as Mock
 
 function makeScenario(id: string): Scenario {
   return {
@@ -83,5 +85,76 @@ describe('useScenarioStore 조회 트리거', () => {
     await flush()
 
     expect(store.scenarios.map((s) => s.id)).toEqual(['B'])
+  })
+})
+
+describe('useScenarioStore 일괄 삭제 (removeSelected)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue(page([]))
+    deleteMock.mockReset()
+    deleteMock.mockResolvedValue(undefined)
+  })
+
+  it('선택된 모든 id에 단건 DELETE를 호출하고 목록을 재조회한다', async () => {
+    const store = useScenarioStore()
+    store.toggleSelect('1')
+    store.toggleSelect('2')
+
+    const result = await store.removeSelected()
+
+    expect(deleteMock.mock.calls.map((c) => c[0]).sort()).toEqual(['1', '2'])
+    expect(result).toEqual({ deleted: 2, missing: 0, failed: 0 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('부분 실패 시 실패 건수를 구분해 반환하고 재조회는 그대로 수행한다', async () => {
+    const store = useScenarioStore()
+    deleteMock.mockImplementation((id: string) => {
+      if (id === '2') return Promise.reject(new HttpError(404, 'not found'))
+      if (id === '3') return Promise.reject(new Error('network'))
+      return Promise.resolve()
+    })
+    store.toggleSelect('1')
+    store.toggleSelect('2')
+    store.toggleSelect('3')
+
+    const result = await store.removeSelected()
+
+    expect(result).toEqual({ deleted: 1, missing: 1, failed: 1 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('선택이 비어 있으면 아무 호출도 하지 않는다', async () => {
+    const store = useScenarioStore()
+    const result = await store.removeSelected()
+    expect(result).toEqual({ deleted: 0, missing: 0, failed: 0 })
+    expect(deleteMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('마지막 페이지의 전 행을 지우면 페이지를 앞으로 보정한다', async () => {
+    const store = useScenarioStore()
+
+    // 2페이지에 2건만 있는 상태(총 12건, pageSize 10)를 만든다
+    fetchMock.mockResolvedValue({
+      items: [makeScenario('11'), makeScenario('12')],
+      total: 12,
+      page: 2,
+      pageSize: 10,
+    })
+    store.filter.page = 2
+    await flush()
+    fetchMock.mockClear()
+
+    store.toggleSelect('11')
+    store.toggleSelect('12')
+    await store.removeSelected()
+    await flush()
+
+    // page watcher가 1페이지 재조회를 트리거한다
+    expect(store.filter.page).toBe(1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
