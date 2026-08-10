@@ -10,6 +10,7 @@ import { createBoundaryLayer, type BoundaryLayer } from './naverBoundaryLayer'
 import { chartColors } from '@/composables/useEchartsTheme'
 import { regionByCode } from '@/constants/regions'
 import { boundsEqual, expandBounds } from '@/utils/geoBounds'
+import { bucketGrids, cellSizeForZoom, type ClusterBucket } from '@/utils/clusterGrids'
 import type { GeoBounds } from '@/types/geo'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSimulationStore } from '@/stores/simulation'
@@ -26,6 +27,7 @@ let map: naver.maps.Map | null = null
 let heatLayer: HeatLayer | null = null
 let boundaryLayer: BoundaryLayer | null = null
 let clusterMarkers: naver.maps.Marker[] = []
+let clusterListeners: naver.maps.MapEventListener[] = []
 let mapListeners: naver.maps.MapEventListener[] = []
 let overlayRaf = 0
 let destroyed = false
@@ -103,6 +105,9 @@ async function initMap(): Promise<void> {
     mapListeners = [
       naver.maps.Event.addListener(map, 'bounds_changed', scheduleOverlayDraw),
       naver.maps.Event.addListener(map, 'idle', scheduleOverlayDraw),
+      // 클러스터 마커는 SDK가 좌표 기준으로 배치하므로 캔버스 오버레이와 달리
+      // 줌 시작 시점(zoom_changed)에 셀 크기를 다시 계산해 재버킷팅해도 어긋나지 않는다
+      naver.maps.Event.addListener(map, 'zoom_changed', renderClusters),
     ]
     renderClusters()
   } catch (error) {
@@ -131,50 +136,57 @@ function updateHeatData(): void {
   heatLayer?.setData(grids.map((g) => ({ lat: g.lat, lng: g.lng, weight: displayScore(g) / 100 })))
 }
 
-interface ClusterBucket {
-  latSum: number
-  lngSum: number
-  riskSum: number
-  count: number
+// 핀 클릭 확대 폭과 상한 — 셀이 줌당 절반씩 줄어 +2면 버킷이 4분할된 모습을 보게 된다
+const CLUSTER_CLICK_ZOOM_STEP = 2
+const CLUSTER_MAX_ZOOM = 19
+
+/** 핀 클릭 시 해당 버킷 영역으로 부드럽게 확대 — 세분화된 하위 클러스터가 드러난다 */
+function zoomToBucket(bucket: ClusterBucket): void {
+  if (!map) return
+  const targetZoom = Math.min(map.getZoom() + CLUSTER_CLICK_ZOOM_STEP, CLUSTER_MAX_ZOOM)
+  map.morph(new naver.maps.LatLng(bucket.lat, bucket.lng), targetZoom)
 }
 
-/** 플러그인 없는 경량 클러스터 — 약 0.004° 격자로 버킷팅해 개수·평균 위험도 마커 표시 */
+/**
+ * 플러그인 없는 경량 클러스터 — 줌 레벨에 따라 셀 크기를 바꿔 버킷팅해
+ * 평균 위험도 핀을 표시한다 (이슈 #24). 최대 줌 부근에서는 셀이 격자 간격보다
+ * 작아져 자연스럽게 개별 격자 표시로 풀린다
+ */
 function renderClusters(): void {
   if (!map) return
+  clusterListeners.forEach((l) => naver.maps.Event.removeListener(l))
+  clusterListeners = []
   clusterMarkers.forEach((m) => m.setMap(null))
   clusterMarkers = []
   const grids = dashboard.gridRisk?.grids
   if (!dashboard.clusterOn || !grids?.length) return
 
-  const CELL = 0.004
-  const buckets = new Map<string, ClusterBucket>()
-  for (const g of grids) {
-    const key = `${Math.floor(g.lat / CELL)}:${Math.floor(g.lng / CELL)}`
-    const bucket = buckets.get(key) ?? { latSum: 0, lngSum: 0, riskSum: 0, count: 0 }
-    bucket.latSum += g.lat
-    bucket.lngSum += g.lng
-    bucket.riskSum += displayScore(g)
-    bucket.count += 1
-    buckets.set(key, bucket)
-  }
+  const cell = cellSizeForZoom(map.getZoom())
+  const buckets = bucketGrids(
+    grids.map((g) => ({ lat: g.lat, lng: g.lng, score: displayScore(g) })),
+    cell,
+  )
 
-  for (const bucket of buckets.values()) {
-    const meanRisk = bucket.riskSum / bucket.count
+  for (const bucket of buckets) {
     const color =
-      meanRisk >= 65 ? chartColors.danger : meanRisk >= 40 ? chartColors.warning : chartColors.primary
+      bucket.meanScore >= 65
+        ? chartColors.danger
+        : bucket.meanScore >= 40
+          ? chartColors.warning
+          : chartColors.primary
     // 크기는 격자 개수(밀도) 유지 — 숫자·색상은 평균 위험도로 통일 (이슈 #30)
     const size = Math.min(44, 26 + Math.round(bucket.count / 12))
-    // 흰 배경 + 색 테두리 — 반투명 배경 히트맵 위에서 또렷하게 보이는 조합
-    clusterMarkers.push(
-      new naver.maps.Marker({
-        map,
-        position: new naver.maps.LatLng(bucket.latSum / bucket.count, bucket.lngSum / bucket.count),
-        icon: {
-          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#fff;border:3px solid ${color};color:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(15,23,42,.35)">${Math.round(meanRisk)}</div>`,
-          anchor: new naver.maps.Point(size / 2, size / 2),
-        },
-      }),
-    )
+    // 흰 배경 + 색 테두리 유지 — 스타일은 전역 .map-cluster-pin 블록 참조 (SDK 주입 DOM이라 scoped 불가)
+    const marker = new naver.maps.Marker({
+      map,
+      position: new naver.maps.LatLng(bucket.lat, bucket.lng),
+      icon: {
+        content: `<div class="map-cluster-pin" style="width:${size}px;height:${size}px;border-color:${color};color:${color}">${Math.round(bucket.meanScore)}<span class="map-cluster-pin__tip">격자 ${bucket.count}개 · 평균 ${bucket.meanScore.toFixed(1)} · 최대 ${bucket.maxScore.toFixed(1)}</span></div>`,
+        anchor: new naver.maps.Point(size / 2, size / 2),
+      },
+    })
+    clusterListeners.push(naver.maps.Event.addListener(marker, 'click', () => zoomToBucket(bucket)))
+    clusterMarkers.push(marker)
   }
 }
 
@@ -215,6 +227,8 @@ onBeforeUnmount(() => {
   if (overlayRaf) cancelAnimationFrame(overlayRaf)
   mapListeners.forEach((l) => naver.maps.Event.removeListener(l))
   mapListeners = []
+  clusterListeners.forEach((l) => naver.maps.Event.removeListener(l))
+  clusterListeners = []
   heatLayer?.setMap(null)
   heatLayer = null
   boundaryLayer?.setMap(null)
@@ -274,6 +288,46 @@ onBeforeUnmount(() => {
     </div>
   </section>
 </template>
+
+<style lang="scss">
+// 클러스터 핀 — 네이버 SDK가 마커 content로 주입하는 DOM이라 scoped 속성이 붙지 않아 전역 블록에서 스타일링.
+// 흰 배경 + 위험도 색 테두리(파랑/주황/빨강)는 인라인 border-color/color로 핀마다 지정된다
+.map-cluster-pin {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+
+  // 호버 상세 팝업 — 격자 수·평균/최대 위험지수
+  &__tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  &:hover &__tip {
+    display: block;
+  }
+}
+</style>
 
 <style scoped lang="scss">
 .map-panel {
