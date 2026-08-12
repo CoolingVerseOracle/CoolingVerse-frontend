@@ -1,0 +1,111 @@
+name: Frontend CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 한 번에 하나의 운영 배포만 수행한다. 진행 중인 배포를 취소하지 않아,
+# 이미 시작된 릴리스와 서버 상태가 어긋나지 않도록 한다.
+concurrency:
+  group: coolingverse-frontend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy to OCI Compute
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      VITE_NAVER_MAP_CLIENT_ID: ${{ vars.NAVER_MAP_CLIENT_ID }}
+      RELEASE_ID: ${{ github.sha }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify and build production assets
+        run: |
+          npm run lint
+          npm run type-check
+          npm test
+          npm run build
+
+      - name: Package static assets
+        run: tar -C dist -czf "coolingverse-frontend-${RELEASE_ID}.tar.gz" .
+
+      - name: Configure the deployment SSH key
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Upload static assets
+        run: |
+          set -euo pipefail
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -P "$DEPLOY_PORT" -i "$HOME/.ssh/id_ed25519" \
+            "coolingverse-frontend-${RELEASE_ID}.tar.gz" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/coolingverse-frontend-${RELEASE_ID}.tar.gz"
+
+      - name: Activate the release
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -p "$DEPLOY_PORT" -i "$HOME/.ssh/id_ed25519" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "RELEASE_ID=${RELEASE_ID} bash -se" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          app_root=/var/www/coolingverse
+          releases_dir="$app_root/releases"
+          archive="/tmp/coolingverse-frontend-${RELEASE_ID}.tar.gz"
+          release_dir="$releases_dir/$RELEASE_ID"
+          temp_dir="$releases_dir/.${RELEASE_ID}.tmp"
+          live_link="$app_root/current"
+          previous_release="$(readlink -f "$live_link" 2>/dev/null || true)"
+
+          test -d "$releases_dir"
+          test -f "$archive"
+          test ! -e "$release_dir"
+          mkdir "$temp_dir"
+          tar -xzf "$archive" -C "$temp_dir"
+          test -f "$temp_dir/index.html"
+          mv "$temp_dir" "$release_dir"
+          ln -sfn "$release_dir" "$live_link"
+          rm -f "$archive"
+
+          if ! grep -qi '<!doctype html\|<html' "$release_dir/index.html"; then
+            test -n "$previous_release" && ln -sfn "$previous_release" "$live_link"
+            exit 1
+          fi
+          if ! curl --fail --silent --show-error --max-time 10 \
+            --resolve coolingverse.com:443:127.0.0.1 https://coolingverse.com/ >/dev/null; then
+            if test -n "$previous_release" && test -f "$previous_release/index.html"; then
+              ln -sfn "$previous_release" "$live_link"
+            fi
+            echo 'HTTPS verification failed; previous frontend release restored.' >&2
+            exit 1
+          fi
+          REMOTE_SCRIPT

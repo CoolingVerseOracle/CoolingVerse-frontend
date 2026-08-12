@@ -2,6 +2,7 @@
 import AppCheckbox from '@/components/common/AppCheckbox.vue'
 import { computed } from 'vue'
 import type { Scenario } from '@/types/scenario'
+import { isExecutableScenarioRegion } from '@/constants/regions'
 
 const props = defineProps<{
   scenario: Scenario
@@ -19,6 +20,9 @@ const selectedProxy = computed({
   get: () => props.selected,
   set: () => emit('toggle', props.scenario.id),
 })
+const executable = computed(() =>
+  isExecutableScenarioRegion(props.scenario.regionCode, props.scenario.region),
+)
 </script>
 
 <template>
@@ -29,7 +33,13 @@ const selectedProxy = computed({
     <td class="scenario-row__name">
       {{ scenario.name }}
     </td>
-    <td>{{ scenario.region }}</td>
+    <td>
+      {{ scenario.region }}
+      <span
+        v-if="!executable"
+        class="scenario-row__legacy"
+      >이력</span>
+    </td>
     <td>{{ scenario.participationRate }}%</td>
     <td class="scenario-row__supply">
       +{{ scenario.supplyDelta }}면
@@ -49,9 +59,11 @@ const selectedProxy = computed({
       <button
         class="scenario-row__action"
         type="button"
+        :disabled="!executable"
+        :title="executable ? '시나리오 열기' : '비활성 지역의 과거 이력은 실행할 수 없습니다.'"
         @click="emit('open', scenario.id)"
       >
-        열기
+        {{ executable ? '열기' : '실행 불가' }}
       </button>
       <button
         class="scenario-row__action"
@@ -125,6 +137,12 @@ const selectedProxy = computed({
     font-size: $font-size-sm;
     color: $color-primary;
 
+    &:disabled {
+      color: $color-text-muted;
+      cursor: not-allowed;
+      background: transparent;
+    }
+
     &:hover {
       background: $color-primary-soft;
     }
@@ -136,6 +154,15 @@ const selectedProxy = computed({
         background: $color-danger-soft;
       }
     }
+  }
+
+  &__legacy {
+    margin-left: $space-1;
+    padding: 2px 6px;
+    border-radius: $radius-sm;
+    background: $color-bg;
+    color: $color-text-muted;
+    font-size: $font-size-xs;
   }
 }
 </style>

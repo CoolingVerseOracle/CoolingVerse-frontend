@@ -2,8 +2,9 @@ import type { SimulationResult, SimulationSettings } from '@/types/simulation'
 import { http } from './http'
 
 /** 대시보드 초기 데이터 — 표준 개방안(30%, 08~19시) 기준 기본 결과 */
-export async function fetchSimulationResult(): Promise<SimulationResult> {
-  return http<SimulationResult>('/simulate/initial')
+export async function fetchSimulationResult(region: string, month: number): Promise<SimulationResult> {
+  const query = new URLSearchParams({ region, month: String(month) })
+  return http<SimulationResult>(`/simulate/initial?${query}`)
 }
 
 /** 시뮬레이션 실행 — 현재 슬라이더 설정으로 재계산 */

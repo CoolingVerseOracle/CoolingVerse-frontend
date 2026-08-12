@@ -30,7 +30,7 @@ export interface SimulationSettings {
   commercialRadiusM: number
   /** 분석 대상 지역 — 구버전 저장분은 없을 수 있음 (기본 'pangyo') */
   region?: RegionCode | null
-  /** 분석 기준 월(1–12) — 백엔드가 저장하지 않아 열기 응답에서는 null (backend #22 결정) */
+  /** 분석 기준 월(1–12) — API 계산 및 시나리오 저장에 반영 */
   month?: number | null
 }
 

@@ -11,13 +11,16 @@ export interface GridRiskResult {
 /**
  * 시간대·지역별 격자 위험지수 조회 — GET /simulate/grid-risk (backend PR #17·#20).
  * 응답에는 위험지수 보유 격자만 포함된다(판교 1,306개) — 그 외 격자는 렌더링하지 않는다.
- * 백엔드가 아직 판교만 데이터를 보유해 ingye는 404가 온다 — 그 경우와 장애,
- * 빈 격자 응답(로컬 H2 등 risk_index 미보유 DB) 시에는 폴백 데이터로 대체하고
+ * 장애 또는 빈 격자 응답(로컬 H2 등 risk_index 미보유 DB) 시에는 폴백 데이터로 대체하고
  * "샘플 데이터"를 표기한다.
  */
 export async function fetchGridRisk(params: GridRiskParams): Promise<GridRiskResult> {
   try {
-    const query = new URLSearchParams({ hour: String(params.hour), region: params.region })
+    const query = new URLSearchParams({
+      hour: String(params.hour),
+      region: params.region,
+      month: String(params.month),
+    })
     if (params.participationRate != null) {
       query.set('participationRate', String(params.participationRate))
     }
