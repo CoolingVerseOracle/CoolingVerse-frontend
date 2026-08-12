@@ -24,7 +24,7 @@ function onSearch(): void {
   }
 }
 
-// 지역 필터는 코드 표준(pangyo/ingye, backend PR #23) — 라벨은 대시보드 지역 셀렉터와 공유
+// 지역 필터는 활성 지역 자연키(pangyo/bucheon) 표준 — 비활성 인계동은 '전체'에서 이력으로 노출
 const regionOptions: SelectOption[] = [
   { label: '지역 전체', value: 'all' },
   ...REGIONS.map((r) => ({ label: r.label, value: r.code })),

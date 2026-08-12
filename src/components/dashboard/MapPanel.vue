@@ -256,7 +256,7 @@ onBeforeUnmount(() => {
             aria-hidden="true"
           >🗺️</span>
           <p class="map-panel__text">
-            판교테크노밸리 공간 분석 지도
+            {{ currentRegion().label }} 공간 분석 지도
           </p>
           <p class="map-panel__hint">
             {{ mapFailed ? '지도 API 키 미설정 또는 로드 실패 — 레이아웃 확인용 플레이스홀더' : '지도를 불러오는 중입니다…' }}
