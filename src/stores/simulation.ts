@@ -5,6 +5,14 @@ import { DEFAULT_PARTICIPATION_RATE } from '@/constants/simulation'
 import type { SimulationResult, SimulationSettings } from '@/types/simulation'
 import { isActiveRegion } from '@/constants/regions'
 
+/** 비활성 지역 시나리오 실행 시도 — 호출부는 메시지 문자열이 아닌 instanceof로 분기한다 */
+export class InactiveRegionError extends Error {
+  constructor(region: string | null | undefined) {
+    super(`비활성 지역 시나리오는 실행할 수 없습니다: ${region}`)
+    this.name = 'InactiveRegionError'
+  }
+}
+
 /** 대시보드 — 시나리오 설정 폼 + 시뮬레이션 결과(KPI/차트) */
 export const useSimulationStore = defineStore('simulation', () => {
   const settings = reactive<SimulationSettings>({
@@ -52,7 +60,7 @@ export const useSimulationStore = defineStore('simulation', () => {
    */
   async function applyScenario(saved: SimulationSettings): Promise<void> {
     if (!isActiveRegion(saved.region ?? 'pangyo')) {
-      throw new Error(`비활성 지역 시나리오는 실행할 수 없습니다: ${saved.region}`)
+      throw new InactiveRegionError(saved.region)
     }
     // 지역이 없는 구버전 저장분은 판교, 월이 없는 구버전은 10월로 정규화한다.
     // 개방 대상 2종은 v2.1에 조작 UI가 없어 true 고정 — false로 저장된 구버전 스냅샷을

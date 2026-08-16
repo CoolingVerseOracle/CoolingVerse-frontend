@@ -10,7 +10,7 @@ import ScenarioTableRow from './ScenarioTableRow.vue'
 import { fetchScenario } from '@/api/scenarios'
 import { HttpError } from '@/api/http'
 import { useScenarioStore } from '@/stores/scenario'
-import { useSimulationStore } from '@/stores/simulation'
+import { InactiveRegionError, useSimulationStore } from '@/stores/simulation'
 import { useToast } from '@/composables/useToast'
 import type { SelectOption } from '@/types/common'
 import { isActiveRegion } from '@/constants/regions'
@@ -38,7 +38,7 @@ async function onOpen(id: string): Promise<void> {
     if (err instanceof HttpError && err.status === 404) {
       window.alert('이미 삭제된 시나리오입니다. 목록을 갱신합니다.')
       void store.load()
-    } else if (err instanceof Error && err.message.includes('비활성 지역')) {
+    } else if (err instanceof InactiveRegionError) {
       window.alert('비활성 지역의 과거 시나리오는 실행할 수 없습니다.')
     } else {
       window.alert('시나리오를 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.')
