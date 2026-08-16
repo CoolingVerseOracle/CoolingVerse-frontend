@@ -93,17 +93,17 @@ jobs:
           tar -xzf "$archive" -C "$temp_dir"
           test -f "$temp_dir/index.html"
           mv "$temp_dir" "$release_dir"
-          ln -sfn "$release_dir" "$live_link"
+          sudo ln -sfn "$release_dir" "$live_link"
           rm -f "$archive"
 
           if ! grep -qi '<!doctype html\|<html' "$release_dir/index.html"; then
-            test -n "$previous_release" && ln -sfn "$previous_release" "$live_link"
+            test -n "$previous_release" && sudo ln -sfn "$previous_release" "$live_link"
             exit 1
           fi
           if ! curl --fail --silent --show-error --max-time 10 \
             --resolve coolingverse.com:443:127.0.0.1 https://coolingverse.com/ >/dev/null; then
             if test -n "$previous_release" && test -f "$previous_release/index.html"; then
-              ln -sfn "$previous_release" "$live_link"
+              sudo ln -sfn "$previous_release" "$live_link"
             fi
             echo 'HTTPS verification failed; previous frontend release restored.' >&2
             exit 1
