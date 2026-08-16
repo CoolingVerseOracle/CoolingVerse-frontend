@@ -71,13 +71,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const seq = ++requestSeq
     // 마지막 실행에 반영된 참여율 — projected 계산 입력 (실행 전이면 생략)
     const participationRate = simulation.appliedRate
+    // 지역·월은 요청 시작 시점 값을 캡처해 요청과 스냅샷에 동일하게 사용 —
+    // 응답 도착 시점에 settings를 다시 읽으면 그 사이 바뀐 값이 stale 응답에 붙는다
     const region = simulation.settings.region ?? 'pangyo'
+    const month = simulation.settings.month ?? 10
     gridLoading.value = true
     try {
       const { data, isFallback } = await fetchGridRisk({
         hour: selectedHour.value,
         region,
-        month: simulation.settings.month ?? 10,
+        month,
         participationRate,
       })
       if (seq !== requestSeq) return
@@ -85,7 +88,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       gridIsFallback.value = isFallback
       gridAppliedRate.value = participationRate
       gridRegion.value = region
-      gridMonth.value = simulation.settings.month ?? 10
+      gridMonth.value = month
     } finally {
       if (seq === requestSeq) gridLoading.value = false
     }
