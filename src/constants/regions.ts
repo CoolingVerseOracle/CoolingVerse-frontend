@@ -42,5 +42,10 @@ export function isExecutableScenarioRegion(
   )
 }
 
-/** 분석 기준 월 선택지 — 항상 1–12월 전체. 연도는 고정(직전 년도 데이터 기준)이라 선택지 없음 */
-export const ANALYSIS_MONTHS: number[] = Array.from({ length: 12 }, (_, i) => i + 1)
+/**
+ * 분석 기준 월 선택지 — 임시로 10월 고정 (이슈 #42).
+ * 현재 4개 지역 모두 analysis_month=10 데이터만 적재되어 있고, 미적재 월을 요청하면
+ * 백엔드가 분당 구모델 기본값으로 조용히 폴백해 지역과 무관한 수치가 표시된다.
+ * 월별 데이터가 적재되면 1–12월 전체로 되돌린다. 연도는 고정(직전 년도 데이터 기준)이라 선택지 없음.
+ */
+export const ANALYSIS_MONTHS: number[] = [10]

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isExecutableScenarioRegion } from './regions'
+import { ANALYSIS_MONTHS, isExecutableScenarioRegion } from './regions'
 
 describe('시나리오 지역 하위 호환성', () => {
   it('구버전 백엔드가 regionCode를 주지 않아도 판교 시나리오는 실행 가능하다', () => {
@@ -20,5 +20,11 @@ describe('시나리오 지역 하위 호환성', () => {
     expect(isExecutableScenarioRegion('sanbon', '군포 산본')).toBe(true)
     expect(isExecutableScenarioRegion('ilsan', '고양 일산')).toBe(true)
     expect(isExecutableScenarioRegion(undefined, '군포 산본')).toBe(true)
+  })
+})
+
+describe('분석 기준 월 선택지', () => {
+  it('월별 데이터 적재 전까지 10월만 노출한다 (이슈 #42 임시 조치)', () => {
+    expect(ANALYSIS_MONTHS).toEqual([10])
   })
 })
