@@ -17,7 +17,8 @@ function makeScenario(id: string): Scenario {
   return {
     id,
     name: `시나리오 ${id}`,
-    region: '판교테크노밸리',
+    region: '판교',
+    regionCode: 'pangyo',
     participationRate: 30,
     supplyDelta: 0,
     riskBefore: 0,

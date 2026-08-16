@@ -3,6 +3,15 @@ import { defineStore } from 'pinia'
 import { fetchSimulationResult, runSimulation } from '@/api/simulation'
 import { DEFAULT_PARTICIPATION_RATE } from '@/constants/simulation'
 import type { SimulationResult, SimulationSettings } from '@/types/simulation'
+import { isActiveRegion } from '@/constants/regions'
+
+/** 비활성 지역 시나리오 실행 시도 — 호출부는 메시지 문자열이 아닌 instanceof로 분기한다 */
+export class InactiveRegionError extends Error {
+  constructor(region: string | null | undefined) {
+    super(`비활성 지역 시나리오는 실행할 수 없습니다: ${region}`)
+    this.name = 'InactiveRegionError'
+  }
+}
 
 /** 대시보드 — 시나리오 설정 폼 + 시뮬레이션 결과(KPI/차트) */
 export const useSimulationStore = defineStore('simulation', () => {
@@ -29,7 +38,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (result.value || loading.value) return
     loading.value = true
     try {
-      result.value = await fetchSimulationResult()
+      result.value = await fetchSimulationResult(settings.region ?? 'pangyo', settings.month ?? 10)
     } finally {
       loading.value = false
     }
@@ -50,7 +59,10 @@ export const useSimulationStore = defineStore('simulation', () => {
    * 완료 후 result가 채워지므로 대시보드 진입 시 loadInitial()은 건너뛰어진다.
    */
   async function applyScenario(saved: SimulationSettings): Promise<void> {
-    // 지역이 없는 구버전 저장분과 월(백엔드 미저장, 항상 null)은 기본값으로 정규화한다.
+    if (!isActiveRegion(saved.region ?? 'pangyo')) {
+      throw new InactiveRegionError(saved.region)
+    }
+    // 지역이 없는 구버전 저장분은 판교, 월이 없는 구버전은 10월로 정규화한다.
     // 개방 대상 2종은 v2.1에 조작 UI가 없어 true 고정 — false로 저장된 구버전 스냅샷을
     // 복원하면 기대효과가 전부 0이 되는 문제(PR #28 리뷰)가 되살아나므로 함께 고정한다
     Object.assign(settings, saved, {

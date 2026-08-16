@@ -24,6 +24,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const gridAppliedRate = ref<number | null>(null)
   /** 현재 gridRisk 응답을 만든 지역 스냅샷 — 지역 전환 직후 stale 응답 판별용 */
   const gridRegion = ref<RegionCode | null>(null)
+  const gridMonth = ref<number | null>(null)
 
   /**
    * 현재 지역의 분석 영역 바운딩박스 — 경계 실선·영역 외 사선·이동 제한의 기준.
@@ -34,7 +35,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const gridBounds = computed<GeoBounds | null>(() => {
     const res = gridRisk.value
     const simulation = useSimulationStore()
-    if (!res || gridRegion.value !== (simulation.settings.region ?? 'pangyo')) return null
+    if (
+      !res ||
+      gridRegion.value !== (simulation.settings.region ?? 'pangyo') ||
+      gridMonth.value !== (simulation.settings.month ?? 10)
+    ) return null
     return res.bounds ?? boundsFromGrids(res.grids)
   })
 
@@ -66,12 +71,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const seq = ++requestSeq
     // 마지막 실행에 반영된 참여율 — projected 계산 입력 (실행 전이면 생략)
     const participationRate = simulation.appliedRate
+    // 지역·월은 요청 시작 시점 값을 캡처해 요청과 스냅샷에 동일하게 사용 —
+    // 응답 도착 시점에 settings를 다시 읽으면 그 사이 바뀐 값이 stale 응답에 붙는다
     const region = simulation.settings.region ?? 'pangyo'
+    const month = simulation.settings.month ?? 10
     gridLoading.value = true
     try {
       const { data, isFallback } = await fetchGridRisk({
         hour: selectedHour.value,
         region,
+        month,
         participationRate,
       })
       if (seq !== requestSeq) return
@@ -79,6 +88,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       gridIsFallback.value = isFallback
       gridAppliedRate.value = participationRate
       gridRegion.value = region
+      gridMonth.value = month
     } finally {
       if (seq === requestSeq) gridLoading.value = false
     }

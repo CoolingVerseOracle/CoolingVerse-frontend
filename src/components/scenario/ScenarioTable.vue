@@ -10,9 +10,10 @@ import ScenarioTableRow from './ScenarioTableRow.vue'
 import { fetchScenario } from '@/api/scenarios'
 import { HttpError } from '@/api/http'
 import { useScenarioStore } from '@/stores/scenario'
-import { useSimulationStore } from '@/stores/simulation'
+import { InactiveRegionError, useSimulationStore } from '@/stores/simulation'
 import { useToast } from '@/composables/useToast'
 import type { SelectOption } from '@/types/common'
+import { isActiveRegion } from '@/constants/regions'
 
 const store = useScenarioStore()
 const simulationStore = useSimulationStore()
@@ -27,12 +28,18 @@ async function onOpen(id: string): Promise<void> {
   opening.value = true
   try {
     const detail = await fetchScenario(id)
+    if (!isActiveRegion(detail.settings.region ?? 'pangyo')) {
+      window.alert('수원 인계동은 과거 이력만 보존되며 현재 시뮬레이션을 실행할 수 없습니다.')
+      return
+    }
     await simulationStore.applyScenario(detail.settings)
     void router.push({ name: 'dashboard' })
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {
       window.alert('이미 삭제된 시나리오입니다. 목록을 갱신합니다.')
       void store.load()
+    } else if (err instanceof InactiveRegionError) {
+      window.alert('비활성 지역의 과거 시나리오는 실행할 수 없습니다.')
     } else {
       window.alert('시나리오를 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.')
     }

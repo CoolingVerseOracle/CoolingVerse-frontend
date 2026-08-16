@@ -20,7 +20,7 @@ onMounted(() => {
 // 하나의 워처로 묶어 시나리오 열기처럼 지역·참여율이 함께 바뀌는 경우도 1회 조회로 합친다
 // (드래그 연타 대응 디바운스 겸용)
 watch(
-  [() => dashboard.selectedHour, () => store.settings.region, () => store.appliedRate],
+  [() => dashboard.selectedHour, () => store.settings.region, () => store.settings.month, () => store.appliedRate],
   () => dashboard.loadGridRiskDebounced(),
 )
 </script>
