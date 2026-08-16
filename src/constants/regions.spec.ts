@@ -15,4 +15,10 @@ describe('시나리오 지역 하위 호환성', () => {
   it('신규 부천 자연키는 실행 가능하다', () => {
     expect(isExecutableScenarioRegion('bucheon', '부천')).toBe(true)
   })
+
+  it('1기 신도시 비교지역(산본·일산)은 코드·표시명 모두 실행 가능하다', () => {
+    expect(isExecutableScenarioRegion('sanbon', '군포 산본')).toBe(true)
+    expect(isExecutableScenarioRegion('ilsan', '고양 일산')).toBe(true)
+    expect(isExecutableScenarioRegion(undefined, '군포 산본')).toBe(true)
+  })
 })
