@@ -1,23 +1,19 @@
 <script setup lang="ts">
-const ITEMS = [
-  { key: 'open', label: '개방 가능 지역' },
-  { key: 'congested', label: '혼잡 지역' },
-  { key: 'danger', label: '고위험' },
-] as const
+import { RISK_INDEX_LEVELS } from '@/utils/riskLevels'
 </script>
 
 <template>
   <div class="map-legend">
     <span
-      v-for="item in ITEMS"
+      v-for="item in RISK_INDEX_LEVELS"
       :key="item.key"
       class="map-legend__item"
     >
       <i
         class="map-legend__dot"
-        :class="`map-legend__dot--${item.key}`"
+        :style="{ backgroundColor: item.color }"
       />
-      {{ item.label }}
+      {{ item.label }} · {{ item.rangeLabel }}
     </span>
   </div>
 </template>
@@ -45,18 +41,6 @@ const ITEMS = [
     width: 10px;
     height: 10px;
     border-radius: 50%;
-
-    &--open {
-      background: $color-primary;
-    }
-
-    &--congested {
-      background: $color-warning;
-    }
-
-    &--danger {
-      background: $color-danger;
-    }
   }
 }
 </style>
