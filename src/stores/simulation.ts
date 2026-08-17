@@ -62,12 +62,14 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!isActiveRegion(saved.region ?? 'pangyo')) {
       throw new InactiveRegionError(saved.region)
     }
-    // 지역이 없는 구버전 저장분은 판교, 월이 없는 구버전은 10월로 정규화한다.
+    // 지역이 없는 구버전 저장분은 판교로 정규화한다.
+    // 월은 10월로 강제 — 선택지가 10월로 고정된 임시 조치(이슈 #42) 동안 다른 월로
+    // 저장된 시나리오를 복원하면 UI에서 되돌릴 수 없는 상태가 되므로 함께 고정한다.
     // 개방 대상 2종은 v2.1에 조작 UI가 없어 true 고정 — false로 저장된 구버전 스냅샷을
     // 복원하면 기대효과가 전부 0이 되는 문제(PR #28 리뷰)가 되살아나므로 함께 고정한다
     Object.assign(settings, saved, {
       region: saved.region ?? 'pangyo',
-      month: saved.month ?? 10,
+      month: 10,
       openToPublic: true,
       residentsOnly: true,
     })
