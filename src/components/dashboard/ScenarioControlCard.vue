@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import AppButton from '@/components/common/AppButton.vue'
 import ChipSelect from './ChipSelect.vue'
 import ScenarioSaveModal from './ScenarioSaveModal.vue'
-import { ANALYSIS_MONTHS, REGIONS } from '@/constants/regions'
+import { REGIONS } from '@/constants/regions'
 import { useToast } from '@/composables/useToast'
 import { useSimulationStore } from '@/stores/simulation'
 import type { RegionCode } from '@/types/geo'
@@ -12,22 +12,12 @@ import type { SelectOption } from '@/types/common'
 const store = useSimulationStore()
 
 const regionOptions: SelectOption[] = REGIONS.map((r) => ({ label: r.label, value: r.code }))
-const monthOptions: SelectOption[] = ANALYSIS_MONTHS.map((m) => ({ label: `${m}월`, value: String(m) }))
-
-// 연도는 변경 불가 — 항상 직전 년도 데이터 기준임을 칩 prefix로만 표시
-const dataYearLabel = `${new Date().getFullYear() - 1}년`
 
 // ChipSelect는 string 모델 — 스토어의 타입 필드와 변환 프록시로 연결
 const region = computed<string>({
   get: () => store.settings.region ?? 'pangyo',
   set: (v) => {
     store.settings.region = v as RegionCode
-  },
-})
-const month = computed<string>({
-  get: () => String(store.settings.month ?? 10),
-  set: (v) => {
-    store.settings.month = Number(v)
   },
 })
 
@@ -57,12 +47,6 @@ function onSaved(name: string): void {
           :options="regionOptions"
           prefix="지역"
           aria-label="분석 대상 지역"
-        />
-        <ChipSelect
-          v-model="month"
-          :options="monthOptions"
-          :prefix="dataYearLabel"
-          aria-label="분석 기준 월"
         />
       </div>
     </header>
