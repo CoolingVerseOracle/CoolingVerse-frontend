@@ -1,5 +1,5 @@
 /** 분석 대상 지역 코드 */
-export type RegionCode = 'pangyo' | 'ingye'
+export type RegionCode = 'pangyo' | 'bucheon' | 'sanbon' | 'ilsan' | 'pyeongchon'
 
 /** 위경도 바운딩박스 — 분석 영역 경계 표시·지도 이동 제한에 공용 */
 export interface GeoBounds {
@@ -13,6 +13,8 @@ export interface GeoBounds {
 export interface GridRiskParams {
   hour: number
   region: RegionCode
+  /** 분석 기준 월(1–12) */
+  month: number
   /** 마지막 실행에 반영된 참여율(%) — 실행 전이면 null, 쿼리에서 생략 */
   participationRate?: number | null
 }

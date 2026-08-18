@@ -11,6 +11,7 @@ import { chartColors } from '@/composables/useEchartsTheme'
 import { regionByCode } from '@/constants/regions'
 import { boundsEqual, expandBounds } from '@/utils/geoBounds'
 import { bucketGrids, cellSizeForZoom, type ClusterBucket } from '@/utils/clusterGrids'
+import { getRiskIndexLevel } from '@/utils/riskLevels'
 import type { GeoBounds } from '@/types/geo'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSimulationStore } from '@/stores/simulation'
@@ -168,20 +169,18 @@ function renderClusters(): void {
   )
 
   for (const bucket of buckets) {
-    const color =
-      bucket.meanScore >= 65
-        ? chartColors.danger
-        : bucket.meanScore >= 40
-          ? chartColors.warning
-          : chartColors.primary
-    // 크기는 격자 개수(밀도) 유지 — 숫자·색상은 평균 위험도로 통일 (이슈 #30)
-    const size = Math.min(44, 26 + Math.round(bucket.count / 12))
-    // 흰 배경 + 색 테두리 유지 — 스타일은 전역 .map-cluster-pin 블록 참조 (SDK 주입 DOM이라 scoped 불가)
+    // 현재 지도에 표시하는 평균 점수로 레벨·색상을 함께 결정한다.
+    // 시나리오 실행 후에는 displayScore가 projectedRiskScore를 반환하므로 두 값도 함께 갱신된다.
+    const level = getRiskIndexLevel(bucket.meanScore)
+    // 레벨명과 점수를 두 줄로 보여 주기 위해 기존 단일 점수 핀보다 최소 크기를 키운다.
+    const size = Math.min(52, 42 + Math.round(bucket.count / 12))
+    const roundedScore = Math.round(bucket.meanScore)
+    // 흰 배경 + 위험도 색 테두리 유지 — 스타일은 전역 .map-cluster-pin 블록 참조 (SDK 주입 DOM이라 scoped 불가)
     const marker = new naver.maps.Marker({
       map,
       position: new naver.maps.LatLng(bucket.lat, bucket.lng),
       icon: {
-        content: `<div class="map-cluster-pin" style="width:${size}px;height:${size}px;border-color:${color};color:${color}">${Math.round(bucket.meanScore)}<span class="map-cluster-pin__tip">격자 ${bucket.count}개 · 평균 ${bucket.meanScore.toFixed(1)} · 최대 ${bucket.maxScore.toFixed(1)}</span></div>`,
+        content: `<div class="map-cluster-pin" style="width:${size}px;height:${size}px;border-color:${level.color};color:${level.color}" aria-label="${level.label} ${roundedScore}점, 격자 ${bucket.count}개"><span class="map-cluster-pin__level">${level.label}</span><strong class="map-cluster-pin__score">${roundedScore}</strong><span class="map-cluster-pin__tip">${level.label} · ${level.rangeLabel}<br>격자 ${bucket.count}개 · 평균 ${bucket.meanScore.toFixed(1)}점 · 최대 ${bucket.maxScore.toFixed(1)}점</span></div>`,
         anchor: new naver.maps.Point(size / 2, size / 2),
       },
     })
@@ -256,7 +255,7 @@ onBeforeUnmount(() => {
             aria-hidden="true"
           >🗺️</span>
           <p class="map-panel__text">
-            판교테크노밸리 공간 분석 지도
+            {{ currentRegion().label }} 공간 분석 지도
           </p>
           <p class="map-panel__hint">
             {{ mapFailed ? '지도 API 키 미설정 또는 로드 실패 — 레이아웃 확인용 플레이스홀더' : '지도를 불러오는 중입니다…' }}
@@ -291,19 +290,31 @@ onBeforeUnmount(() => {
 
 <style lang="scss">
 // 클러스터 핀 — 네이버 SDK가 마커 content로 주입하는 DOM이라 scoped 속성이 붙지 않아 전역 블록에서 스타일링.
-// 흰 배경 + 위험도 색 테두리(파랑/주황/빨강)는 인라인 border-color/color로 핀마다 지정된다
+// 흰 배경 + 5단계 위험도 색 테두리/텍스트는 인라인 스타일로 핀마다 지정된다.
 .map-cluster-pin {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   border: 3px solid;
   border-radius: 50%;
   background: #fff;
-  font-size: 11px;
-  font-weight: 700;
+  line-height: 1;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
   cursor: pointer;
+
+  &__level {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  &__score {
+    margin-top: 2px;
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
 
   // 호버 상세 팝업 — 격자 수·평균/최대 위험지수
   &__tip {
@@ -319,6 +330,8 @@ onBeforeUnmount(() => {
     font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
+    line-height: 1.45;
+    text-align: center;
     pointer-events: none;
     z-index: 1;
   }

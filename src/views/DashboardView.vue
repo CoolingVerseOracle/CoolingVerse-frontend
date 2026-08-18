@@ -20,34 +20,38 @@ onMounted(() => {
 // 하나의 워처로 묶어 시나리오 열기처럼 지역·참여율이 함께 바뀌는 경우도 1회 조회로 합친다
 // (드래그 연타 대응 디바운스 겸용)
 watch(
-  [() => dashboard.selectedHour, () => store.settings.region, () => store.appliedRate],
+  [() => dashboard.selectedHour, () => store.settings.region, () => store.settings.month, () => store.appliedRate],
   () => dashboard.loadGridRiskDebounced(),
 )
 </script>
 
 <template>
   <div class="dashboard-v2">
-    <template v-if="store.result">
-      <div class="dashboard-v2__grid">
-        <section class="dashboard-v2__left">
-          <ScenarioControlCard />
-          <ImpactKpiStack :metrics="store.result.kpis" />
-        </section>
-        <section class="dashboard-v2__center">
-          <MapPanel />
-        </section>
-        <section class="dashboard-v2__right">
-          <MCurveCard />
-          <RiskBreakdownCard />
-        </section>
-      </div>
-    </template>
-    <p
-      v-else
-      class="dashboard-v2__loading"
-    >
-      데이터를 불러오는 중입니다…
-    </p>
+    <div class="dashboard-v2__grid">
+      <section class="dashboard-v2__left">
+        <ScenarioControlCard />
+        <!-- 기대 효과만 시뮬레이션 결과에 의존한다. 조회 실패로 카드를 통째로 감추면
+             지역 셀렉터까지 사라져 다른 지역으로 되돌아갈 수 없다 -->
+        <ImpactKpiStack
+          v-if="store.result"
+          :metrics="store.result.kpis"
+        />
+        <p
+          v-else
+          class="dashboard-v2__notice"
+          :class="{ 'dashboard-v2__notice--error': store.error }"
+        >
+          {{ store.error ?? '기대 효과를 불러오는 중입니다…' }}
+        </p>
+      </section>
+      <section class="dashboard-v2__center">
+        <MapPanel />
+      </section>
+      <section class="dashboard-v2__right">
+        <MCurveCard />
+        <RiskBreakdownCard />
+      </section>
+    </div>
   </div>
 </template>
 
@@ -126,10 +130,16 @@ watch(
     }
   }
 
-  &__loading {
-    padding: $space-8;
+  &__notice {
+    @include card;
+    padding: $space-4;
     text-align: center;
     color: $color-text-muted;
+    font-size: $font-size-sm;
+
+    &--error {
+      color: $color-danger;
+    }
   }
 }
 </style>

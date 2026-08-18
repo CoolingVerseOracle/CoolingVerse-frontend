@@ -4,8 +4,10 @@ import type { SimulationSettings } from './simulation'
 export interface Scenario {
   id: string
   name: string
-  /** 대상 지역 표시명 (판교테크노밸리, 수원 인계동 …) */
+  /** 대상 지역 표시명 (판교, 부천, 과거 이력의 수원 인계동 등) */
   region: string
+  /** 지역 자연키. 인계동 등 비활성 이력의 실행을 막는 데 사용 */
+  regionCode?: string
   /** 참여율(%) — 테이블 참여율 컬럼 표기 (backend PR #23) */
   participationRate: number
   /** 공급 증감(면) */

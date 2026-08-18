@@ -1,6 +1,6 @@
 /**
  * grid-risk 개발용 폴백 데이터 생성기.
- * 백엔드 장애 또는 데이터 미보유 지역(현재 ingye는 404) 조회 시 화면이 막히지 않도록
+ * 백엔드 장애나 로컬 빈 DB 조회 시 화면이 막히지 않도록
  * 시드 고정 의사난수로 항상 같은 격자 분포를 만들어낸다. (mock API 계층이 아니라
  * 명시적 graceful-degradation 경로 — 사용처에서 isFallback으로 표기된다)
  */
@@ -20,7 +20,19 @@ const GRID_COUNT = 1306
 
 const REGION_BOUNDS: Record<RegionCode, GeoBounds> = {
   pangyo: { latMin: 37.394, latMax: 37.412, lngMin: 127.098, lngMax: 127.126 },
-  ingye: { latMin: 37.256, latMax: 37.272, lngMin: 127.024, lngMax: 127.044 },
+  bucheon: { latMin: 37.45, latMax: 37.55, lngMin: 126.72, lngMax: 126.82 },
+  sanbon: { latMin: 37.349, latMax: 37.367, lngMin: 126.918, lngMax: 126.946 },
+  ilsan: { latMin: 37.63, latMax: 37.73, lngMin: 126.71, lngMax: 126.81 },
+  pyeongchon: { latMin: 37.36, latMax: 37.42, lngMin: 126.92, lngMax: 126.99 },
+}
+
+/** 지역별 고정 시드 — 지역마다 다른 핫스팟 배치를 재현 가능하게 유지 */
+const REGION_SEEDS: Record<RegionCode, number> = {
+  pangyo: 20261306,
+  bucheon: 20261308,
+  sanbon: 20261310,
+  ilsan: 20261312,
+  pyeongchon: 20261314,
 }
 
 /** 시드 고정 의사난수 (mulberry32) — 같은 지역이면 항상 같은 격자 배치 */
@@ -90,7 +102,7 @@ function baseGrid(region: RegionCode): BasePoint[] {
   if (cached) return cached
 
   const bounds = REGION_BOUNDS[region]
-  const rand = mulberry32(region === 'pangyo' ? 20261306 : 20261307)
+  const rand = mulberry32(REGION_SEEDS[region])
 
   // 핫스팟 3곳 — 시드 고정이라 지역별로 항상 같은 위치
   const hotspots = Array.from({ length: 3 }, () => ({
