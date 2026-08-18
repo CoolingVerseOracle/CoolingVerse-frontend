@@ -413,6 +413,8 @@ onBeforeUnmount(() => {
     position: absolute;
     inset: $space-3;
     pointer-events: none;
+    // 범례(MapLegend)가 오버레이 폭 기준으로 가로/세로 배치를 전환할 수 있게 컨테이너로 지정
+    container: map-overlays / inline-size;
 
     > * {
       pointer-events: auto;

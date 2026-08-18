@@ -22,19 +22,20 @@ import { RISK_INDEX_LEVELS } from '@/utils/riskLevels'
 .map-legend {
   display: flex;
   align-items: center;
-  // 지도(오버레이 영역) 폭을 넘으면 잘리는 대신 줄바꿈한다 — 우측 정렬 유지
-  flex-wrap: wrap;
   justify-content: flex-end;
-  max-width: 100%;
-  gap: $space-1 $space-4;
+  gap: $space-4;
   padding: $space-2 $space-3;
   border: 1px solid $color-border;
   border-radius: $radius-md;
   background: rgba(255, 255, 255, 0.94);
 
-  // 중간 폭 화면: 항목 간격을 줄여 한 줄 유지 폭을 낮춘다
-  @include below($bp-md) {
-    gap: $space-1 $space-2;
+  // 오버레이 폭이 한 줄 폭보다 좁으면 세로 배치로 전환한다.
+  // flex-wrap 줄바꿈은 absolute 배치 특성상 박스가 가용 폭 전체로 늘어나
+  // 내용 주변 여백이 한쪽으로 쏠리므로 쓰지 않는다.
+  @container map-overlays (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-1;
   }
 
   &__item {
