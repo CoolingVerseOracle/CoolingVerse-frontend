@@ -39,9 +39,25 @@ export async function http<T>(path: string, init: RequestInit = {}): Promise<T> 
   if (!res.ok) {
     // 토큰 무효(서버 재시작 포함) — 세션을 정리하고 로그인 화면으로 보낸다
     if (res.status === 401) onUnauthorized?.()
-    throw new HttpError(res.status, `요청 실패 (${res.status}): ${path}`)
+    const reason = await readErrorMessage(res)
+    throw new HttpError(res.status, reason ?? `요청 실패 (${res.status}): ${path}`)
   }
   // DELETE 등 body 없는 응답(204)은 json 파싱을 건너뛴다
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+/**
+ * 백엔드는 4xx 사유를 `{message}` 본문으로 내려준다(SimulationController 등).
+ * 사용자에게 "요청 실패 (400)" 대신 실제 사유를 보여줄 수 있도록 꺼내 쓴다.
+ * 본문이 없거나 JSON이 아니면 null — 호출부가 기본 문구로 되돌린다.
+ */
+async function readErrorMessage(res: Response): Promise<string | null> {
+  try {
+    const body: unknown = await res.json()
+    const message = (body as { message?: unknown }).message
+    return typeof message === 'string' && message.trim() ? message : null
+  } catch {
+    return null
+  }
 }
