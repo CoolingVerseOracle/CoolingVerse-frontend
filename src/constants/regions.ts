@@ -13,10 +13,11 @@ export interface RegionOption {
  * (dashboard 스토어 gridBounds) — 지역이 추가되면 여기엔 센터·줌만 등록하면 된다.
  */
 export const REGIONS: RegionOption[] = [
-  { code: 'pangyo', label: '판교', center: { lat: 37.4004, lng: 127.1122 }, zoom: 14 },
+  { code: 'pangyo', label: '성남 분당', center: { lat: 37.4004, lng: 127.1122 }, zoom: 14 },
   { code: 'bucheon', label: '부천', center: { lat: 37.5034, lng: 126.766 }, zoom: 13 },
   { code: 'sanbon', label: '군포 산본', center: { lat: 37.358, lng: 126.932 }, zoom: 14 },
   { code: 'ilsan', label: '고양 일산', center: { lat: 37.68, lng: 126.76 }, zoom: 13 },
+  { code: 'pyeongchon', label: '안양 평촌', center: { lat: 37.3899, lng: 126.955 }, zoom: 14 },
 ]
 
 export function regionByCode(code: RegionCode): RegionOption {
@@ -34,11 +35,13 @@ export function isExecutableScenarioRegion(
 ): boolean {
   if (code) return isActiveRegion(code)
   return (
+    displayName === '성남 분당' ||
     displayName === '판교' ||
     displayName === '판교테크노밸리' ||
     displayName === '부천' ||
     displayName === '군포 산본' ||
-    displayName === '고양 일산'
+    displayName === '고양 일산' ||
+    displayName === '안양 평촌'
   )
 }
 

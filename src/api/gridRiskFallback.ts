@@ -23,6 +23,7 @@ const REGION_BOUNDS: Record<RegionCode, GeoBounds> = {
   bucheon: { latMin: 37.45, latMax: 37.55, lngMin: 126.72, lngMax: 126.82 },
   sanbon: { latMin: 37.349, latMax: 37.367, lngMin: 126.918, lngMax: 126.946 },
   ilsan: { latMin: 37.63, latMax: 37.73, lngMin: 126.71, lngMax: 126.81 },
+  pyeongchon: { latMin: 37.36, latMax: 37.42, lngMin: 126.92, lngMax: 126.99 },
 }
 
 /** 지역별 고정 시드 — 지역마다 다른 핫스팟 배치를 재현 가능하게 유지 */
@@ -31,6 +32,7 @@ const REGION_SEEDS: Record<RegionCode, number> = {
   bucheon: 20261308,
   sanbon: 20261310,
   ilsan: 20261312,
+  pyeongchon: 20261314,
 }
 
 /** 시드 고정 의사난수 (mulberry32) — 같은 지역이면 항상 같은 격자 배치 */

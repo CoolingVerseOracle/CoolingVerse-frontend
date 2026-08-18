@@ -1,5 +1,5 @@
 /** 분석 대상 지역 코드 */
-export type RegionCode = 'pangyo' | 'bucheon' | 'sanbon' | 'ilsan'
+export type RegionCode = 'pangyo' | 'bucheon' | 'sanbon' | 'ilsan' | 'pyeongchon'
 
 /** 위경도 바운딩박스 — 분석 영역 경계 표시·지도 이동 제한에 공용 */
 export interface GeoBounds {
