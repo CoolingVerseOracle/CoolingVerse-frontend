@@ -13,11 +13,12 @@ const store = useSimulationStore()
 
 const regionOptions: SelectOption[] = REGIONS.map((r) => ({ label: r.label, value: r.code }))
 
-// ChipSelect는 string 모델 — 스토어의 타입 필드와 변환 프록시로 연결
+// ChipSelect는 string 모델 — 스토어의 타입 필드와 변환 프록시로 연결.
+// 지역 전환은 이전 지역 결과를 비우고 새 기준값을 받아야 하므로 스토어 액션을 거친다
 const region = computed<string>({
   get: () => store.settings.region ?? 'pangyo',
   set: (v) => {
-    store.settings.region = v as RegionCode
+    void store.selectRegion(v as RegionCode)
   },
 })
 
@@ -32,6 +33,15 @@ const toast = useToast()
 function onSaved(name: string): void {
   saveModalOpen.value = false
   toast.show(`'${name}' 시나리오가 저장되었습니다. 시나리오 관리에서 확인할 수 있습니다.`)
+}
+
+/** 실행 실패를 조용히 넘기면 이전 결과가 남아 "적용이 안 된다"로 보인다 — 사유를 알린다 */
+async function onRun(): Promise<void> {
+  try {
+    await store.run()
+  } catch {
+    toast.show(store.error ?? '시뮬레이션 실행에 실패했습니다.', 'error')
+  }
 }
 </script>
 
@@ -91,7 +101,7 @@ function onSaved(name: string): void {
       <AppButton
         block
         :disabled="store.running"
-        @click="store.run()"
+        @click="onRun"
       >
         시뮬레이션 실행
       </AppButton>
