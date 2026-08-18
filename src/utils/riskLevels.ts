@@ -11,16 +11,16 @@ export interface RiskIndexLevel {
   minScore: number
   /** 지도 마커·범례에 공통 적용하는 색상. */
   color: string
-  /** 범례·툴팁에 표시할 점수 구간 설명. */
+  /** 범례·툴팁에 표시할 점수 구간 설명 — 레벨이 높은 순으로 나열되므로 상한(미만)만 적는다. */
   rangeLabel: string
 }
 
 /** 높은 점수부터 선언해 첫 번째 일치 레벨을 반환한다. */
 export const RISK_INDEX_LEVELS: readonly RiskIndexLevel[] = [
   { key: 'danger', label: '위험', minScore: 74, color: '#dc2626', rangeLabel: '74점 이상' },
-  { key: 'alert', label: '경계', minScore: 62, color: '#f97316', rangeLabel: '62점 이상 ~ 74점 미만' },
-  { key: 'caution', label: '주의', minScore: 54, color: '#eab308', rangeLabel: '54점 이상 ~ 62점 미만' },
-  { key: 'normal', label: '정상', minScore: 40, color: '#16a34a', rangeLabel: '40점 이상 ~ 54점 미만' },
+  { key: 'alert', label: '경계', minScore: 62, color: '#f97316', rangeLabel: '74점 미만' },
+  { key: 'caution', label: '주의', minScore: 54, color: '#eab308', rangeLabel: '62점 미만' },
+  { key: 'normal', label: '정상', minScore: 40, color: '#16a34a', rangeLabel: '54점 미만' },
   { key: 'smooth', label: '원활', minScore: Number.NEGATIVE_INFINITY, color: '#1e90ff', rangeLabel: '40점 미만' },
 ]
 
