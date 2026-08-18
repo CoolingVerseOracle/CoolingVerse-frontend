@@ -5,6 +5,7 @@ describe('시나리오 지역 하위 호환성', () => {
   it('구버전 백엔드가 regionCode를 주지 않아도 판교 시나리오는 실행 가능하다', () => {
     expect(isExecutableScenarioRegion(undefined, '판교테크노밸리')).toBe(true)
     expect(isExecutableScenarioRegion(undefined, '판교')).toBe(true)
+    expect(isExecutableScenarioRegion(undefined, '성남 분당')).toBe(true)
   })
 
   it('인계동 과거 이력은 regionCode 유무와 무관하게 실행하지 않는다', () => {
@@ -20,6 +21,11 @@ describe('시나리오 지역 하위 호환성', () => {
     expect(isExecutableScenarioRegion('sanbon', '군포 산본')).toBe(true)
     expect(isExecutableScenarioRegion('ilsan', '고양 일산')).toBe(true)
     expect(isExecutableScenarioRegion(undefined, '군포 산본')).toBe(true)
+  })
+
+  it('안양 평촌은 코드·표시명 모두 실행 가능하다', () => {
+    expect(isExecutableScenarioRegion('pyeongchon', '안양 평촌')).toBe(true)
+    expect(isExecutableScenarioRegion(undefined, '안양 평촌')).toBe(true)
   })
 })
 
